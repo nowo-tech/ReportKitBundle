@@ -5,6 +5,7 @@
 - [Status](#status)
 - [Threat model](#threat-model)
 - [Audits](#audits)
+- [Release security checklist (12.4.1)](#release-security-checklist-1241)
 - [Reporting](#reporting)
 
 ## Status
@@ -34,6 +35,23 @@ From contract §6. Each threat names the control that answers it and the slice t
 S3 (scheduled runs: access re-check and mail) and S6 (public API) need an **immediate REQ-SEC-004 audit** before a tag
 that contains them; the other slices are audited in the batch before 1.0.0, together with the `bundle-req-audit` at
 100 %.
+
+## Release security checklist (12.4.1)
+
+Run before every tag (`docs/RELEASE.md`); each slice updates the status column.
+
+| Item | Status (S0 scaffold, unreleased) |
+| --- | --- |
+| `docs/SECURITY.md` and `.github/SECURITY.md` present | ✅ |
+| `.env` files ignored; no secrets in the repository | ✅ (demo uses placeholder values) |
+| Safe recipe / config defaults | ✅ (nothing is reachable in S0; PDF / XLSX refused without their engine) |
+| Input validation / output escaping | — (no input in S0; Twig auto-escape for the pages of later slices) |
+| `composer audit` clean | ✅ (CI) |
+| No secrets / personal data in logs | ✅ (no logging in S0) |
+| Cryptography | — (none) |
+| Permissions / exposure | — (no route in S0; access checker from S2) |
+| Limits / DoS | — (row / cell / render-time limits from S1) |
+| REQ-SEC-004 AI audit recorded | Pending (before the first tag, see [Audits](#audits)) |
 
 ## Reporting
 

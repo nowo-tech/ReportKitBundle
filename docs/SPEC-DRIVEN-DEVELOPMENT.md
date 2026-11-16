@@ -9,7 +9,8 @@ This repository follows the Nowo spec-driven workflow:
    [`CONFIGURATION.md`](CONFIGURATION.md), [`INSTALLATION.md`](INSTALLATION.md)). **PHPUnit** and **PHPStan** enforce
    it in CI.
 3. **Baseline** — [`specs/001-baseline/spec.md`](../specs/001-baseline/spec.md) and the 100 % code inventory
-   [`specs/001-baseline/code-inventory.md`](../specs/001-baseline/code-inventory.md). Every slice updates both.
+   [`specs/001-baseline/code-inventory.md`](../specs/001-baseline/code-inventory.md). Every slice updates both. The
+   Spec Kit manual (install, initialise, structure, Cursor usage) is [`SPEC-KIT.md`](SPEC-KIT.md).
 4. **Repository REQs** — `BUNDLES_FULL_SPECS_DETAILS.md` (Makefile, CI, demo, docs, security). The bundle reaches 100 %
    of the applicable REQs before 1.0.0 (`bundle-req-audit`), plus the REQ-SEC-004 audit.
 
