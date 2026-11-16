@@ -49,6 +49,24 @@ Facts that shaped the design:
 
 ---
 
+## Table of contents
+
+- [1. Scope](#1-scope)
+- [2. Package](#2-package)
+- [3. Shape](#3-shape)
+- [4. Public ports (interfaces and value objects)](#4-public-ports-interfaces-and-value-objects)
+- [5. Persistence](#5-persistence)
+- [6. Security model](#6-security-model)
+- [7. Configuration](#7-configuration)
+- [8. UI (UiKit + FormKit, `REQ-UI-001/002/003`, `REQ-TWIG-005`)](#8-ui-uikit--formkit-req-ui-001002003-req-twig-005)
+- [9. Messenger and scheduled work](#9-messenger-and-scheduled-work)
+- [10. Personal data (`REQ-DATA-001…004`)](#10-personal-data-req-data-001004)
+- [11. Worker-mode design (FrankenPHP, kernel reset false)](#11-worker-mode-design-frankenphp-kernel-reset-false)
+- [12. Beacon migration (how Beacon swaps its code)](#12-beacon-migration-how-beacon-swaps-its-code)
+- [13. Milestones](#13-milestones)
+- [14. Test strategy (coverage gate ≥ 99 % PHP)](#14-test-strategy-coverage-gate--99--php)
+- [15. Questions](#15-questions)
+
 ## 1. Scope
 
 **In (generic, moves out of Beacon):**

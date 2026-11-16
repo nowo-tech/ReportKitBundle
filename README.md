@@ -1,6 +1,8 @@
 # Report Kit Bundle
 
-[![CI](https://github.com/nowo-tech/ReportKitBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/ReportKitBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/report-kit-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/report-kit-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7.4%20%7C%208.0%20%7C%208.1%2B-000000?logo=symfony)](https://symfony.com) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
+[![CI](https://github.com/nowo-tech/ReportKitBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/ReportKitBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/report-kit-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/report-kit-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/report-kit-bundle.svg)](https://packagist.org/packages/nowo-tech/report-kit-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7.4%20%7C%208.0%20%7C%208.1%2B-000000?logo=symfony)](https://symfony.com) [![GitHub stars](https://img.shields.io/github/stars/nowo-tech/ReportKitBundle.svg?style=social&label=Star)](https://github.com/nowo-tech/ReportKitBundle) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
+
+> ⭐ **Found this useful?** [Install from Packagist](https://packagist.org/packages/nowo-tech/report-kit-bundle) · Give it a **star** on [GitHub](https://github.com/nowo-tech/ReportKitBundle) so more developers can find it.
 
 **Reports and scheduled exports for Symfony: report types with parameter schemas, PDF / XLSX / CSV / JSON renderers, server-side SVG charts, on-screen report pages and per-owner scheduled e-mail subscriptions.**
 
@@ -58,14 +60,25 @@ Every key of the contract is already accepted (strict tree): [docs/CONFIGURATION
 - [Installation](docs/INSTALLATION.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Usage](docs/USAGE.md) (incl. using it from a DDD / hexagonal application)
-- [Roadmap](docs/ROADMAP.md) (slices and open questions)
-- [Contract](docs/CONTRACT.md)
+- [Contributing](docs/CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Changelog](docs/CHANGELOG.md)
+- [Upgrading](docs/UPGRADING.md)
+- [Release](docs/RELEASE.md)
 - [Security](docs/SECURITY.md)
-- [FrankenPHP worker audit](docs/FRANKENPHP-WORKER-AUDIT.md)
+- [Engram](docs/ENGRAM.md)
+- [Spec-driven development](docs/SPEC-DRIVEN-DEVELOPMENT.md)
+- [GitHub Spec Kit](docs/SPEC-KIT.md)
+- [Roadmap](docs/ROADMAP.md) (slices and open questions)
+
+### Additional documentation
+
+- [Design contract (221-C)](docs/CONTRACT.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [PSR evaluation (REQ-CS-007)](docs/PSR.md)
 - [Demo with FrankenPHP](docs/DEMO-FRANKENPHP.md)
-- [Upgrading](docs/UPGRADING.md) · [Changelog](docs/CHANGELOG.md) · [Release](docs/RELEASE.md)
-- [Architecture](docs/ARCHITECTURE.md) · [PSR](docs/PSR.md) · [Spec-driven development](docs/SPEC-DRIVEN-DEVELOPMENT.md) · [Spec Kit](docs/SPEC-KIT.md)
-- [Contributing](docs/CONTRIBUTING.md) · [GitHub CI](docs/GITHUB_CI.md) · [Engram](docs/ENGRAM.md)
+- [FrankenPHP worker audit (kernel not reset)](docs/FRANKENPHP-WORKER-AUDIT.md)
+- [GitHub Actions CI requirements](docs/GITHUB_CI.md)
 
 ## Requirements
 
@@ -84,7 +97,10 @@ make test-coverage-100  # fails below 100 % of src/
 make release-check      # every gate, demo included
 ```
 
-- PHP: 100 % of `src/` (gate in CI).
+- Tests: PHPUnit (unit, integration: kernel, database on SQLite / MySQL / PostgreSQL, kept-alive worker)
+- PHP: 100% (296/296 lines in CI, gate `make test-coverage-100`)
+- TS/JS: N/A
+- Python: N/A
 
 ## License
 
