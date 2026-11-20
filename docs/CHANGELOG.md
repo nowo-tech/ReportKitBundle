@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Demo (`demo/symfony8`) brought up to the house demo rules: dev stack with `symfony/web-profiler-bundle`, `symfony/debug-bundle`, Twig Inspector and Hot Reload (dev/test only, Caddy `mercure` + `hot_reload`) (REQ-DEMO-001); pages rendered on UiKit's admin layout instead of a hand-written CDN shell (REQ-DEMO-014); Flex pin `extra.symfony.require` `8.1.*` (REQ-DEMO-012); Playwright e2e suite (`demo/symfony8/e2e`, home page renders, no console errors), `make test-e2e` / `make demo-screenshots`, a `Demo e2e` CI workflow and an overview WebP screenshot in the README (REQ-DEMO-013).
+
 ### Documentation
 
 - README: standard badge line (Packagist Downloads, GitHub stars), "Found this useful?" line, canonical `## Documentation` list with `### Additional documentation`, Tests and coverage with TS/JS and Python N/A (REQ-DOCS-002/004/009/019, REQ-TEST-007). `docs/CONTRACT.md` has a table of contents (REQ-DOCS-005), `docs/SPEC-DRIVEN-DEVELOPMENT.md` links the Spec Kit manual (REQ-SPECKIT-002) and `docs/SECURITY.md` carries the release security checklist (REQ-SEC-002).

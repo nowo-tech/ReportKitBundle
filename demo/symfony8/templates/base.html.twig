@@ -1,19 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Report Kit Bundle demo{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <nav class="navbar navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{{ path('demo_home') }}">Report Kit Bundle demo</a>
-        </div>
-    </nav>
-    <main class="container py-4">
-        {% block body %}{% endblock %}
-    </main>
-</body>
-</html>
+{#- REQ-DEMO-014: the demo shell is UiKit's admin layout with UiKit's default theme (nowo-ui.css from the bundle's own
+    asset package, no CSS framework, no CDN). The masthead lists the demo pages with the active item. -#}
+{% extends '@NowoUiKit/layout/admin.html.twig' %}
+
+{% block nowo_ui_document_title %}{% block title %}Report Kit Bundle demo{% endblock %} — Symfony 8{% endblock %}
+
+{% block nowo_ui_navigation %}
+    {% set _route = app.request.attributes.get('_route') %}
+    <header class="nowo-ui-header" data-testid="demo-masthead">
+        <a class="nowo-ui-brand" href="{{ path('demo_home') }}">Report Kit Bundle · Symfony 8</a>
+        <nav class="nowo-ui-menu" aria-label="Demo">
+            {% for item in [{route: 'demo_home', label: 'Overview'}] %}
+                <a class="nowo-ui-link" href="{{ path(item.route) }}"{% if _route == item.route %} aria-current="page"{% endif %} data-testid="demo-nav-{{ item.route }}">{{ item.label }}</a>
+            {% endfor %}
+        </nav>
+    </header>
+{% endblock %}
+
+{% block nowo_ui_content %}{% block body %}{% endblock %}{% endblock %}
