@@ -21,6 +21,8 @@ request state in services, a worker test (one kernel, 2,000 requests) from the f
 interfaces and value objects, bundle-owned tables are mapped in XML and referenced by id, the bundle never flushes your
 EntityManager.
 
+![Report Kit Bundle demo: the S0 status page with the demo masthead and the Symfony web debug toolbar](docs/images/demo/overview.webp)
+
 ## Features (planned, see the roadmap)
 
 - **Report model**: `Report` and `ReportSection` (key values with delta, tone and sparkline; tables with optional chart
@@ -87,7 +89,7 @@ Every key of the contract is already accepted (strict tree): [docs/CONFIGURATION
 
 ## Demo
 
-`demo/symfony8`: Symfony 8.1, FrankenPHP worker mode, MySQL, on http://localhost:8223 (`make -C demo up`).
+`demo/symfony8`: Symfony 8.1, FrankenPHP worker mode, MySQL, on http://localhost:8223 (`make -C demo up`). The demo shell is UiKit; run the Playwright e2e with `make test-e2e` and refresh the screenshot with `make demo-screenshots`.
 
 ## Tests and coverage
 
