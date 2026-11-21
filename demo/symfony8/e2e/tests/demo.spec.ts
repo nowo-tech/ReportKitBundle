@@ -13,7 +13,7 @@ test.describe('Report Kit demo', () => {
 
     const response = await page.goto('/');
     expect(response?.status()).toBe(200);
-    await expect(page.getByTestId('demo-masthead')).toBeVisible();
+    await expect(page.getByTestId('demo-platform')).toBeVisible();
     await expect(page.getByTestId('demo-status')).toContainText('NowoReportKitBundle');
     await expect(page.getByTestId('demo-status')).toContainText('worker mode');
     await page.waitForLoadState('networkidle');

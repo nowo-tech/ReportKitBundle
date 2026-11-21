@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { waitForWebProfiler } from './helpers';
+import { frameShot } from './frame';
 
 /** REQ-DEMO-013 — README screenshot (captured as PNG, converted to WebP by scripts/to-webp.mjs). */
 const outDir = process.env.SCREENSHOT_DIR
@@ -18,7 +18,6 @@ test.describe('Report Kit screenshots', () => {
   test('overview — demo frame with the bundle status', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('demo-status')).toContainText('NowoReportKitBundle');
-    await waitForWebProfiler(page);
-    await page.screenshot({ path: resolve(outDir, 'overview.png'), fullPage: true });
+    await frameShot(page, resolve(outDir, 'overview.png'));
   });
 });
