@@ -7,9 +7,12 @@ namespace Nowo\ReportKitBundle\Contract;
 use Nowo\ReportKitBundle\Contract\Exception\InvalidReportArgumentException;
 
 use function mb_check_encoding;
+use function mb_scrub;
 use function mb_strlen;
 use function preg_match;
+use function preg_replace;
 use function sprintf;
+use function trim;
 
 /**
  * Shared checks of the value objects (contract §4.1). Never trims: a value is valid as given or refused.
@@ -20,6 +23,17 @@ final class Guard
 {
     /** Owner types, context types, report type keys and parameter names. */
     public const KEY_PATTERN = '/^[a-z][a-z0-9_]{0,31}$/D';
+
+    /**
+     * A display text made safe for every format (audit ZG-L5): invalid UTF-8 scrubbed, control characters (tab, CR, LF,
+     * C1) and bidirectional embedding / override / isolate controls replaced by a space, edges trimmed.
+     */
+    public static function text(string $value): string
+    {
+        $value = mb_check_encoding($value, 'UTF-8') ? $value : mb_scrub($value, 'UTF-8');
+
+        return trim((string) preg_replace('/[\p{Cc}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', ' ', $value));
+    }
 
     /**
      * Refuses a key that does not match {@see self::KEY_PATTERN}.

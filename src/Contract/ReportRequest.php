@@ -9,7 +9,6 @@ use DateTimeZone;
 use Nowo\ReportKitBundle\Contract\Exception\InvalidReportArgumentException;
 
 use function in_array;
-use function mb_check_encoding;
 use function mb_strlen;
 use function preg_match;
 use function sprintf;
@@ -24,6 +23,9 @@ final readonly class ReportRequest
     /** @var list<ContextRef> */
     public array $accessible;
 
+    /** Display name of the effective context, cleaned ({@see Guard::text()}); null = its id. */
+    public ?string $contextLabel;
+
     /**
      * @param OwnerRef $owner the person the report is built for
      * @param object $user the host's user object (for the host's own queries; never read by the bundle)
@@ -33,7 +35,8 @@ final readonly class ReportRequest
      * @param string $timezone IANA time zone of the owner
      * @param DateTimeImmutable $now the build time
      * @param bool $scheduled built by a scheduled run (S3) rather than a viewer
-     * @param string|null $contextLabel display name of the effective context (filters line, file name); null = its id
+     * @param string|null $contextLabel display name of the effective context (filters line, file name); null = its id.
+     *                                  Control characters become spaces; empty after cleaning or above 200 characters is refused
      */
     public function __construct(
         public OwnerRef $owner,
@@ -44,7 +47,7 @@ final readonly class ReportRequest
         public string $timezone,
         public DateTimeImmutable $now,
         public bool $scheduled = false,
-        public ?string $contextLabel = null,
+        ?string $contextLabel = null,
     ) {
         $keys = [];
         foreach ($accessible as $context) {
@@ -62,10 +65,12 @@ final readonly class ReportRequest
         if (!in_array($timezone, DateTimeZone::listIdentifiers(), true)) {
             throw new InvalidReportArgumentException('ReportRequest timezone must be an IANA time zone identifier.');
         }
-        if ($contextLabel !== null && ($contextLabel === '' || !mb_check_encoding($contextLabel, 'UTF-8') || mb_strlen($contextLabel) > 200)) {
-            throw new InvalidReportArgumentException(sprintf('ReportRequest contextLabel must be 1 to %d UTF-8 characters.', 200));
+        $label = $contextLabel === null ? null : Guard::text($contextLabel);
+        if ($label !== null && ($label === '' || mb_strlen($label, 'UTF-8') > 200)) {
+            throw new InvalidReportArgumentException(sprintf('ReportRequest contextLabel must be 1 to %d characters.', 200));
         }
-        $this->accessible = $accessible;
+        $this->accessible   = $accessible;
+        $this->contextLabel = $label;
     }
 
     /**

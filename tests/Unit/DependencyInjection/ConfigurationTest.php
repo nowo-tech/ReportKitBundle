@@ -29,7 +29,7 @@ final class ConfigurationTest extends TestCase
         ], $config['formats']);
         self::assertSame('report', $config['filename_prefix']);
         self::assertNull($config['temp_dir']);
-        self::assertSame(['resolver' => null], $config['brand']);
+        self::assertSame(['resolver' => null, 'context_type' => 'project'], $config['brand']);
         self::assertSame([
             'cache_pool'           => 'cache.rate_limiter',
             'exports'              => ['limit' => 20, 'interval' => '10 minutes'],
@@ -125,6 +125,8 @@ final class ConfigurationTest extends TestCase
         yield 'mail template scheme' => [['mail' => ['template' => 'http://x.test/a.twig']], 'Expected a Twig template name'];
         yield 'layout double slash' => [['web_ui' => ['layout_template' => 'a//b.html.twig']], 'Expected a Twig template name'];
         yield 'page template' => [['web_ui' => ['templates' => ['index' => 'index.html']]], 'Expected a Twig template name'];
+        yield 'rows above the hard cap (ZG-I6)' => [['limits' => ['max_rows_per_section' => 50001]], 'nowo_report_kit.limits.max_rows_per_section'];
+        yield 'brand context type' => [['brand' => ['context_type' => 'Project']], 'Expected null or a context type'];
         yield 'temp dir empty' => [['temp_dir' => ''], 'Expected null or a directory path'];
         yield 'temp dir nul' => [['temp_dir' => "/tmp/\0x"], 'Expected null or a directory path'];
         yield 'admin path' => [['admin_ui' => ['path_prefix' => '']], 'Expected an absolute path without a trailing slash'];

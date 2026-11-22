@@ -22,7 +22,24 @@ final readonly class Report
     /** Tones of a badge. */
     public const BADGE_TONES = ['good', 'bad', 'warn', 'neutral'];
 
+    /** Shown in the heading of every format (cleaned, {@see Guard::text()}). */
+    public string $title;
+
+    /** One line that states the period and the effective scope (cleaned). */
+    public string $filters;
+
+    /** A short text under the title (cleaned). */
+    public ?string $summary;
+
+    /** @var list<array{label: string, tone: string}> badges with cleaned labels */
+    public array $badges;
+
+    /** One line of the headline figures (cleaned). */
+    public ?string $glance;
+
     /**
+     * Text fields are cleaned (valid UTF-8, no control characters: audit ZG-L5), so every format accepts them.
+     *
      * @param string $title shown in the heading of every format
      * @param string $filters one line that states the period and the effective scope
      * @param list<ReportSection> $sections in order
@@ -35,15 +52,15 @@ final readonly class Report
      * @param string|null $locale locale of the bundle's own texts in the files (null = the translator's current locale)
      */
     public function __construct(
-        public string $title,
-        public string $filters,
+        string $title,
+        string $filters,
         public DateTimeImmutable $generatedAt,
         public array $sections,
         public string $filename,
-        public ?string $summary = null,
-        public array $badges = [],
+        ?string $summary = null,
+        array $badges = [],
         public ?string $link = null,
-        public ?string $glance = null,
+        ?string $glance = null,
         public ?ContextRef $brandContext = null,
         public ?string $locale = null,
     ) {
@@ -52,10 +69,12 @@ final readonly class Report
                 throw new InvalidReportArgumentException('Report sections must be ReportSection values.');
             }
         }
+        $cleanBadges = [];
         foreach ($badges as $badge) {
             if (!is_array($badge) || !is_string($badge['label'] ?? null) || !in_array($badge['tone'] ?? null, self::BADGE_TONES, true)) {
                 throw new InvalidReportArgumentException('Report badges must be {label, tone} with tone good, bad, warn or neutral.');
             }
+            $cleanBadges[] = ['label' => Guard::text($badge['label']), 'tone' => $badge['tone']];
         }
         if ($link !== null && !$this->isSafeLink($link)) {
             throw new InvalidReportArgumentException('Report link must be a local path or an https:// URL.');
@@ -63,6 +82,11 @@ final readonly class Report
         if ($locale !== null && preg_match('/^[a-z]{2,3}([_-][A-Za-z0-9]{2,8})?$/D', $locale) !== 1) {
             throw new InvalidReportArgumentException('Report locale must be a locale such as "en" or "pt_BR".');
         }
+        $this->title   = Guard::text($title);
+        $this->filters = Guard::text($filters);
+        $this->summary = $summary === null ? null : Guard::text($summary);
+        $this->badges  = $cleanBadges;
+        $this->glance  = $glance === null ? null : Guard::text($glance);
     }
 
     private function isSafeLink(string $link): bool

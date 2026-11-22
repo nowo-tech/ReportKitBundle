@@ -18,8 +18,11 @@ use Nowo\ReportKitBundle\Contract\ReportBrandResolverInterface;
  * context when the host's provider is scoped (brand per project, spec 220), its `getBrand()` otherwise, and a neutral
  * built-in brand without a provider. Resolved per call, nothing memoised.
  *
- * The scope is the report's effective context id (already checked against the viewer's accessible contexts); an id
- * that is not a valid brand scope (non-ASCII, spaces) uses the instance brand.
+ * The scope is the report's effective context id (already checked against the viewer's accessible contexts). A brand
+ * scope is an id only, so only contexts of `brand.context_type` (default `project`) are scoped: `team:42` never takes
+ * the brand of `project:42` (audit ZG-L4); other types, and an id that is not a valid brand scope (non-ASCII, spaces),
+ * use the instance brand. `context_type: null` scopes every type by id (a host whose context ids never collide across
+ * types). A host with several branded context types provides its own `brand.resolver`.
  */
 final readonly class DefaultReportBrandResolver implements ReportBrandResolverInterface
 {
@@ -28,8 +31,9 @@ final readonly class DefaultReportBrandResolver implements ReportBrandResolverIn
 
     /**
      * @param BrandProviderInterface|null $provider the host's brand provider, if any
+     * @param string|null $contextType the context type whose id is the brand scope; null = every type
      */
-    public function __construct(private ?BrandProviderInterface $provider = null)
+    public function __construct(private ?BrandProviderInterface $provider = null, private ?string $contextType = 'project')
     {
     }
 
@@ -42,7 +46,7 @@ final readonly class DefaultReportBrandResolver implements ReportBrandResolverIn
             return self::neutral();
         }
         $scope = null;
-        if ($context instanceof ContextRef) {
+        if ($context instanceof ContextRef && ($this->contextType === null || $context->type === $this->contextType)) {
             try {
                 $scope = new BrandScope($context->id);
             } catch (InvalidArgumentException) {

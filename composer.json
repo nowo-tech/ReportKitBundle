@@ -59,7 +59,7 @@
         "dompdf/dompdf": "^3.1",
         "friendsofphp/php-cs-fixer": "^3.0",
         "igor-php/igor-php": "^0.10.1",
-        "nowo-tech/controller-kit-bundle": "^2.3",
+        "nowo-tech/controller-kit-bundle": "^2.3.1",
         "nowo-tech/phpstan-frankenphp": "^1.3",
         "openspout/openspout": "^4.28 || ^5.0",
         "phpstan/extension-installer": "^1.4",
@@ -76,12 +76,13 @@
     },
     "suggest": {
         "dompdf/dompdf": "^3.1: PDF exports and PdfDocumentRendererInterface (Q-O3)",
-        "nowo-tech/controller-kit-bundle": "^2.3: CSV formula guard shared with ControllerKit (Q-O4)",
+        "nowo-tech/controller-kit-bundle": "^2.3.1: CSV formula guard shared with ControllerKit (Q-O4)",
         "openspout/openspout": "^4.28 || ^5.0: XLSX exports (Q-O3)",
         "symfony/flex": "For automatic recipe installation"
     },
     "conflict": {
         "dompdf/dompdf": "<3.1",
+        "nowo-tech/controller-kit-bundle": "<2.3.1",
         "openspout/openspout": "<4.28"
     },
     "autoload": {

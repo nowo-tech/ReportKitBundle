@@ -66,6 +66,12 @@ final class SettingsAndBrandTest extends TestCase
         self::assertSame('Instance', $resolver->brandFor(null)->name);
         // Not a valid brand scope (non-ASCII): the instance brand, never a guess.
         self::assertSame('Instance', $resolver->brandFor(new ContextRef('project', 'café'))->name);
+        // ZG-L4: a scope is an id only, so another context type with the same id never takes the project's brand.
+        self::assertSame('Instance', $resolver->brandFor(new ContextRef('team', '42'))->name);
+        $teams = new DefaultReportBrandResolver($provider, 'team');
+        self::assertSame('Project 42', $teams->brandFor(new ContextRef('team', '42'))->name);
+        self::assertSame('Instance', $teams->brandFor(new ContextRef('project', '42'))->name);
+        self::assertSame('Project 42', (new DefaultReportBrandResolver($provider, null))->brandFor(new ContextRef('board', '42'))->name);
     }
 
     public static function brand(string $name): Brand

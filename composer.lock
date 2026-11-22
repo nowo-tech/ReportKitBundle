@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "33f7d81c20bd5f26cdb53d9d10944e28",
+    "content-hash": "903fb86954df1b6c3aaaec15267f448d",
     "packages": [
         {
             "name": "nowo-tech/brand-contracts",

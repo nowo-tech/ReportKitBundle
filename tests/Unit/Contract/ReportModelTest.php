@@ -103,6 +103,22 @@ final class ReportModelTest extends TestCase
         yield 'locale' => [static fn (): Report => new Report('T', 'F', new DateTimeImmutable(), [], 'f', locale: 'EN')];
     }
 
+    /**
+     * Audit ZG-L5: header texts are valid UTF-8 without control characters, so the PDF page texts and the JSON
+     * export always accept them.
+     */
+    public function testHeaderTextsAreCleaned(): void
+    {
+        $report = new Report("Orders\tby\nday", "Last 7 days \u{202E}evil\x00", new DateTimeImmutable(), [], 'f', summary: "Sum\xFFmary\r", badges: [['label' => "Li\x1Bve", 'tone' => 'good']], glance: "\x7F1 order ");
+
+        self::assertSame('Orders by day', $report->title);
+        self::assertSame('Last 7 days  evil', $report->filters);
+        self::assertSame('Sum?mary', $report->summary);
+        self::assertSame([['label' => 'Li ve', 'tone' => 'good']], $report->badges);
+        self::assertSame('1 order', $report->glance);
+        self::assertNull((new Report('T', 'F', new DateTimeImmutable(), [], 'f'))->summary);
+    }
+
     public function testSafeLinksAreKept(): void
     {
         self::assertSame('/r/1?x=2', (new Report('T', 'F', new DateTimeImmutable(), [], 'f', link: '/r/1?x=2'))->link);

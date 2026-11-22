@@ -41,6 +41,13 @@ final class ReportRequestTest extends TestCase
         $this->request(new ReportParameters(7, new ContextRef('project', 'A')), [$a]);
     }
 
+    public function testTheContextLabelIsCleanedZgL5(): void
+    {
+        $request = new ReportRequest(new OwnerRef('user', '1'), new stdClass(), new ReportParameters(7, null), [], 'en', 'UTC', new DateTimeImmutable(), false, "Acme\tWeb\n");
+        self::assertSame('Acme Web', $request->contextLabel);
+        self::assertNull((new ReportRequest(new OwnerRef('user', '1'), new stdClass(), new ReportParameters(7, null), [], 'en', 'UTC', new DateTimeImmutable()))->contextLabel);
+    }
+
     /**
      * @param list<mixed> $accessible
      */
@@ -61,7 +68,7 @@ final class ReportRequestTest extends TestCase
         yield 'timezone' => [[], 'en', 'Mars/Base', null];
         yield 'empty label' => [[], 'en', 'UTC', ''];
         yield 'long label' => [[], 'en', 'UTC', str_repeat('x', 201)];
-        yield 'label not utf-8' => [[], 'en', 'UTC', "\xFF"];
+        yield 'label only control characters' => [[], 'en', 'UTC', "\t\n"];
     }
 
     /**
