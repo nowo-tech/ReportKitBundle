@@ -74,6 +74,7 @@ final class ExportTest extends TestCase
     {
         $clock  = new MockClock('2026-11-22 10:00:00');
         $budget = new RenderBudget($clock, 25);
+        self::assertSame('2026-11-22 10:00:25', $budget->deadline()->format('Y-m-d H:i:s'));
         $clock->sleep(25);
         $budget->check();
         $clock->sleep(1);

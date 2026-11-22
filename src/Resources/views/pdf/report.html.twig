@@ -176,6 +176,8 @@
                         </tr>
                     {% endfor %}
                 </table>
+                {% if item.cut is not null %}<p class="note">{{ 'report.truncated'|trans({'%count%': item.cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
+                {% if item.spark_cut is not null %}<p class="note">{{ 'report.spark_truncated'|trans({'%count%': item.spark_cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
 
             {% elseif item.kind == 'series' %}
                 <div class="chart"><img src="{{ item.svg }}" alt="{{ 'report.chart_alt'|trans({'%title%': section.title}, 'NowoReportKitBundle', locale) }}"></div>
@@ -192,6 +194,7 @@
                         <td style="text-align: right">{{ 'report.stat.daily_in_exports'|trans({}, 'NowoReportKitBundle', locale) }}</td>
                     </tr>
                 </table>
+                {% if item.cut is not null %}<p class="note">{{ 'report.truncated'|trans({'%count%': item.cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
 
             {% elseif item.kind == 'slices' %}
                 <table class="slices">
@@ -203,6 +206,7 @@
                         </tr>
                     {% endfor %}
                 </table>
+                {% if item.cut is not null %}<p class="note">{{ 'report.truncated'|trans({'%count%': item.cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
 
             {% elseif item.kind == 'details' %}
                 <table class="details">

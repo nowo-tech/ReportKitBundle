@@ -81,6 +81,7 @@ final readonly class PdfReportRenderer implements ReportRendererInterface
             mb_strimwidth($brand->name . ' · ' . $report->title, 0, 120, '…', 'UTF-8'),
             $this->translator->trans('report.page', ['%page%' => '{PAGE_NUM}', '%pages%' => '{PAGE_COUNT}'], 'NowoReportKitBundle', $report->locale),
             mb_strimwidth($report->title, 0, 70, '…', 'UTF-8') . ' · ' . mb_strimwidth($report->filters, 0, 120, '…', 'UTF-8'),
+            deadline: $budget->deadline(),
         );
         fwrite($stream, $this->pdf->render($this->template, [
             'report'   => $report,

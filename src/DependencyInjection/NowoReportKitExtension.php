@@ -164,7 +164,7 @@ final class NowoReportKitExtension extends Extension
             $container->setAlias('nowo_report_kit.brand_resolver', $config['brand']['resolver']);
         } else {
             $container->register('nowo_report_kit.brand_resolver', DefaultReportBrandResolver::class)
-                ->setArguments([new Reference(BrandProviderInterface::class, ContainerInterface::NULL_ON_INVALID_REFERENCE)]);
+                ->setArguments([new Reference(BrandProviderInterface::class, ContainerInterface::NULL_ON_INVALID_REFERENCE), $config['brand']['context_type']]);
         }
         $container->setAlias(ReportBrandResolverInterface::class, 'nowo_report_kit.brand_resolver')->setPublic(true);
 
@@ -217,7 +217,7 @@ final class NowoReportKitExtension extends Extension
         if ($this->installed(self::FORMAT_ENGINES['pdf'][0])) {
             $fontCache = '%kernel.cache_dir%/nowo_report_kit/fonts';
             $container->register('nowo_report_kit.pdf_document_renderer', DompdfDocumentRenderer::class)
-                ->setArguments([new Reference(Environment::class), $temp, $limits, $fontCache]);
+                ->setArguments([new Reference(Environment::class), $temp, $limits, $fontCache, new Reference(ClockInterface::class)]);
             $container->setAlias(PdfDocumentRendererInterface::class, 'nowo_report_kit.pdf_document_renderer')->setPublic(true);
             $container->register('nowo_report_kit.font_cache_warmer', DompdfFontCacheWarmer::class)
                 ->setArguments([$temp, $fontCache])

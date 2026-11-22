@@ -48,6 +48,7 @@ final class SupportTest extends TestCase
         self::assertDirectoryDoesNotExist($dir);
         self::assertFileExists($this->base . '/keep/file', 'a symlink is removed, never followed');
         self::assertSame(['.', '..'], scandir($this->base . '/runs'));
+        $temp->discard($dir); // already gone (ZG-I4): a no-op, never an exception inside a `finally`
 
         $system = new PrivateTempDirectory();
         $other  = $system->create();

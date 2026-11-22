@@ -8,7 +8,12 @@ use Nowo\ReportKitBundle\Contract\ReportSection;
 use Nowo\ReportKitBundle\Infrastructure\Rendering\PdfSectionView;
 use PHPUnit\Framework\TestCase;
 
+use function base64_decode;
+use function mb_strlen;
+use function range;
 use function str_repeat;
+use function substr;
+use function substr_count;
 
 final class PdfSectionViewTest extends TestCase
 {
@@ -31,7 +36,8 @@ final class PdfSectionViewTest extends TestCase
     public function testSeriesAndSlices(): void
     {
         $series = PdfSectionView::build(ReportSection::table('S', ['d', 'a', 'b'], [['2026-11-20', 1, 2], ['2026-11-21', 4, 'x']], chart: 'series'), '#123456', 120, 180);
-        self::assertSame(['kind', 'section', 'svg', 'svg_dark', 'legend', 'total', 'peak', 'peak_day', 'mean'], array_keys($series));
+        self::assertSame(['kind', 'section', 'svg', 'legend', 'total', 'peak', 'peak_day', 'mean', 'cut'], array_keys($series));
+        self::assertNull($series['cut']);
         self::assertSame(7.0, $series['total']);
         self::assertSame(4.0, $series['peak']);
         self::assertSame('2026-11-21', $series['peak_day']);
@@ -65,6 +71,43 @@ final class PdfSectionViewTest extends TestCase
         self::assertSame('table', $plain['kind']);
         self::assertSame(9, $plain['cut']);
         self::assertSame([false], $plain['numeric']);
+    }
+
+    /**
+     * Audit ZG-M1: every PDF kind is bounded, and each cut carries the truncation note.
+     */
+    public function testCardsBarsColumnsAndSparklinesAreBounded(): void
+    {
+        $items = [];
+        for ($i = 0; $i < 5000; ++$i) {
+            $items[] = ['label' => 'figure ' . $i . str_repeat('x', 300), 'value' => $i, 'delta' => 1, 'tone' => 'good', 'spark' => range(1, 1000)];
+        }
+        $kpis = PdfSectionView::build(ReportSection::keyValues('K', 'L', 'V', 'D', $items), '#123456', 120, 50);
+        self::assertCount(120, $kpis['cards']);
+        self::assertSame(120, $kpis['cut']);
+        self::assertSame(PdfSectionView::MAX_SPARK_POINTS, $kpis['spark_cut']);
+        self::assertSame(50, mb_strlen($kpis['cards'][0]['label']));
+        $short = PdfSectionView::build(ReportSection::keyValues('K', 'L', 'V', 'D', [['label' => 'a', 'value' => 'b', 'spark' => [1, 2]]]), '#123456', 120, 50);
+        self::assertNull($short['cut']);
+        self::assertNull($short['spark_cut']);
+
+        $rows = [];
+        for ($i = 0; $i < 5000; ++$i) {
+            $rows[] = ['slice ' . $i . str_repeat('y', 300), $i + 1];
+        }
+        $slices = PdfSectionView::build(ReportSection::table('P', ['l', 'v'], $rows, chart: 'slices'), '#123456', 120, 50);
+        self::assertCount(120, $slices['slices']);
+        self::assertSame(120, $slices['cut']);
+        self::assertSame(50, mb_strlen($slices['slices'][0]['label']));
+
+        $days = [];
+        for ($i = 0; $i < 1000; ++$i) {
+            $days[] = ['d' . $i, $i + 1];
+        }
+        $series = PdfSectionView::build(ReportSection::table('S', ['d', 'v'], $days, chart: 'series'), '#123456', 500, 50);
+        self::assertSame(PdfSectionView::MAX_SERIES_ROWS, $series['cut']);
+        self::assertSame(PdfSectionView::MAX_SERIES_ROWS, substr_count((string) base64_decode(substr($series['svg'], 26), true), '<rect'));
+        self::assertSame(120, PdfSectionView::build(ReportSection::table('S', ['d', 'v'], $days, chart: 'series'), '#123456', 120, 50)['cut']);
     }
 
     public function testDisplay(): void

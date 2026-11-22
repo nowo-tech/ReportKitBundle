@@ -46,13 +46,16 @@ final readonly class DompdfFontCacheWarmer implements CacheWarmerInterface
         }
         $dir = $this->temp->create();
         try {
+            $state  = DompdfPhpState::snapshot();
             $dompdf = new Dompdf(ClosedDompdfOptions::create($dir, is_dir($this->fontCache) ? $this->fontCache : null));
             try {
-                $dompdf->loadHtml('<p style="font-family: \'DejaVu Sans\'">Aa <b>Bb</b> <i>Cc</i></p>', 'UTF-8');
+                // Every family and style the default report template uses (audit ZG-I1).
+                $dompdf->loadHtml('<p style="font-family: \'DejaVu Sans\'">Aa <b>Bb</b> <i>Cc</i> <b><i>Dd</i></b></p><p style="font-family: \'DejaVu Sans Mono\'">Ee <b>Ff</b></p>', 'UTF-8');
                 $dompdf->render();
             } finally {
                 Cache::clear();
                 DompdfWarnings::clear();
+                DompdfPhpState::restore($state);
             }
         } finally {
             $this->temp->discard($dir);

@@ -60,6 +60,9 @@ final readonly class PrivateTempDirectory
      */
     public function discard(string $dir): void
     {
+        if (!is_dir($dir)) {
+            return;
+        }
         $items = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
         foreach ($items as $item) {
             /** @var SplFileInfo $item */

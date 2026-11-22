@@ -28,6 +28,14 @@ final readonly class RenderBudget
     }
 
     /**
+     * When the budget runs out (handed to the PDF runner, which checks it inside Dompdf).
+     */
+    public function deadline(): DateTimeImmutable
+    {
+        return $this->deadline;
+    }
+
+    /**
      * @throws ReportLimitExceededException when the budget is spent
      */
     public function check(): void

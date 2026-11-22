@@ -3,6 +3,7 @@ bundle:
     name: "Rapporten"
 report:
     truncated: 'Alleen de eerste %count% rijen zijn opgenomen.'
+    spark_truncated: 'De trends tonen de laatste %count% punten.'
     sheet:
         about: 'Over'
     page: 'Pagina %page% van %pages%'

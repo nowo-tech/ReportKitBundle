@@ -3,6 +3,7 @@ bundle:
     name: "Report"
 report:
     truncated: 'Sono incluse solo le prime %count% righe.'
+    spark_truncated: 'Le tendenze mostrano gli ultimi %count% punti.'
     sheet:
         about: 'Informazioni'
     page: 'Pagina %page% di %pages%'

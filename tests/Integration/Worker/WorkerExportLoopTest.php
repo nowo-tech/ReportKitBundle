@@ -16,15 +16,19 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\TerminableInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+use function fwrite;
 use function gc_collect_cycles;
+use function getenv;
 use function json_encode;
 use function memory_get_usage;
 use function ob_get_clean;
 use function ob_start;
 use function scandir;
+use function sprintf;
 use function sys_get_temp_dir;
 
 use const JSON_THROW_ON_ERROR;
+use const STDERR;
 
 /**
  * Contract §11 / REQ-RUNTIME-002: one kernel kept alive, no services resetter, 500 alternating PDF / XLSX / CSV
@@ -55,11 +59,13 @@ final class WorkerExportLoopTest extends KernelTestCase
         $baseline = 0;
         $parser   = new Parser();
         for ($i = 0; $i < self::EXPORTS; ++$i) {
-            $owner    = $i % 2 === 0 ? 'a' : 'b';
-            $other    = $owner === 'a' ? 'b1' : 'a1';
-            $locale   = $i % 4 < 2 ? 'en' : 'de';
-            $format   = self::FORMATS[$i % 3];
-            $request  = Request::create('/export/orders/' . $owner . '.' . $format, 'GET', ['locale' => $locale]);
+            $owner  = $i % 2 === 0 ? 'a' : 'b';
+            $other  = $owner === 'a' ? 'b1' : 'a1';
+            $locale = $i % 4 < 2 ? 'en' : 'de';
+            $format = self::FORMATS[$i % 3];
+            // A different seed every time: new texts in every export, so Dompdf's function-static caches (text widths,
+            // image sizes) grow as they would with real data (audit ZG-L3).
+            $request  = Request::create('/export/orders/' . $owner . '.' . $format, 'GET', ['locale' => $locale, 'seed' => (string) $i]);
             $response = $http->handle($request, HttpKernelInterface::MAIN_REQUEST, false);
             ob_start();
             $response->sendContent();
@@ -75,6 +81,7 @@ final class WorkerExportLoopTest extends KernelTestCase
             self::assertStringContainsString('project:' . ($owner === 'a' ? 'a1' : 'b1'), $text, 'export ' . $i . ' holds its own context');
             self::assertStringNotContainsString('project:' . $other, $text, 'export ' . $i . ' never holds the other owner\'s context');
             self::assertStringContainsString($locale === 'de' ? 'Letzte 30 Tage' : 'Last 30 days', $text, 'export ' . $i . ' is in its locale');
+            self::assertStringContainsString('seed-' . $i . '-' . $owner, $text, 'export ' . $i . ' holds its own varied row');
             self::assertSame(['.', '..'], scandir($temp), 'no temporary file left after export ' . $i);
             self::assertSame('en', $translator->getLocale(), 'the translator locale is untouched after export ' . $i);
 
@@ -84,7 +91,11 @@ final class WorkerExportLoopTest extends KernelTestCase
             }
         }
         gc_collect_cycles();
-        self::assertLessThan(4 * 1024 * 1024, memory_get_usage() - $baseline, 'memory stays flat over ' . self::EXPORTS . ' exports');
+        $growth = memory_get_usage() - $baseline;
+        if (getenv('REPORT_KIT_MEMORY') === '1') {
+            fwrite(STDERR, sprintf("\nWorkerExportLoopTest: %d bytes after export 50, %.0f bytes per export\n", $growth, $growth / (self::EXPORTS - 51)));
+        }
+        self::assertLessThan(4 * 1024 * 1024, $growth, 'memory stays flat over ' . self::EXPORTS . ' exports with varied content');
         self::assertSame([], $GLOBALS['_dompdf_warnings'] ?? [], 'Dompdf warnings do not pile up');
         (new Filesystem())->remove($temp);
     }

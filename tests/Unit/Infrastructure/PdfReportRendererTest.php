@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle\Tests\Unit\Infrastructure;
 
 use DateTimeImmutable;
+use LogicException;
 use Nowo\Brand\Contract\Brand;
 use Nowo\Brand\Contract\BrandAsset;
 use Nowo\Brand\Contract\BrandAssetOrigin;
@@ -102,6 +103,11 @@ final class PdfReportRendererTest extends TestCase
                 return is_array($brand) && array_key_exists('logo', $brand) ? $brand['logo'] : 'missing';
             }
 
+            public function renderHtml(string $html, PdfOptions $options = new PdfOptions()): string
+            {
+                throw new LogicException('not used by the report renderer');
+            }
+
             public function render(string $template, array $context, PdfOptions $options = new PdfOptions()): string
             {
                 $this->seen = ['template' => $template, 'brand' => $context['brand'], 'options' => $options];
@@ -173,10 +179,27 @@ final class PdfReportRendererTest extends TestCase
         self::assertStringContainsString('No data for: Nothing here, No series, No slices', $text);
     }
 
+    /**
+     * Audit ZG-M1: 5,000 bars reach Dompdf as at most `pdf_max_rows`, with the truncation note.
+     */
+    public function testLongChartsAreCutWithTheNote(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 5000; ++$i) {
+            $rows[] = ['item-' . $i, $i + 1];
+        }
+        $report = new Report('Bars', 'F', new DateTimeImmutable('2026-11-22T10:00:00+00:00'), [ReportSection::table('Shares', ['l', 'v'], $rows, chart: 'slices')], 'bars', locale: 'en');
+        $text   = (new Parser())->parseContent($this->render($this->renderer(new DefaultReportBrandResolver()), $report))->getText();
+
+        self::assertStringContainsString('item-119', $text);
+        self::assertStringNotContainsString('item-120', $text);
+        self::assertStringContainsString('Only the first 120 rows are included.', $text);
+    }
+
     private function renderer(ReportBrandResolverInterface $brands, ?BrandAssetReaderInterface $assets = null, ?Translator $translator = null): PdfReportRenderer
     {
         $translator ??= Rendering::translator();
-        $pdf = new DompdfDocumentRenderer(Rendering::twig(), new PrivateTempDirectory($this->base), new RenderLimits(), $this->base . '/no-cache');
+        $pdf = new DompdfDocumentRenderer(Rendering::twig(), new PrivateTempDirectory($this->base), new RenderLimits(), $this->base . '/no-cache', new MockClock());
 
         return new PdfReportRenderer($pdf, $brands, $translator, new RenderLimits(), '@NowoReportKit/pdf/report.html.twig', 'A4', $assets);
     }

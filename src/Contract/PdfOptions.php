@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ReportKitBundle\Contract;
 
+use DateTimeImmutable;
 use Nowo\ReportKitBundle\Contract\Exception\InvalidReportArgumentException;
 
 use function in_array;
@@ -14,7 +15,7 @@ use function preg_match;
 /**
  * Options of one {@see PdfDocumentRendererInterface::render()} call: paper, orientation, and the texts drawn on every
  * page (footer left and right, running header from page 2). `{PAGE_NUM}` and `{PAGE_COUNT}` are replaced in the
- * footer texts.
+ * footer texts. `$deadline` bounds the Dompdf run (default: now + `limits.render_seconds`).
  */
 final readonly class PdfOptions
 {
@@ -31,6 +32,7 @@ final readonly class PdfOptions
      * @param string|null $footerRight text at the bottom right of every page (e.g. `Page {PAGE_NUM} of {PAGE_COUNT}`)
      * @param string|null $runningHeader text at the top of every page from page 2
      * @param string $footerColor `#rrggbb` of the page texts
+     * @param DateTimeImmutable|null $deadline the render stops with `ReportLimitExceededException` after it; null = now + `limits.render_seconds`
      */
     public function __construct(
         public string $paper = 'A4',
@@ -39,6 +41,7 @@ final readonly class PdfOptions
         public ?string $footerRight = null,
         public ?string $runningHeader = null,
         public string $footerColor = '#868e96',
+        public ?DateTimeImmutable $deadline = null,
     ) {
         if (!in_array($paper, self::PAPERS, true)) {
             throw new InvalidReportArgumentException('PdfOptions paper must be A4, A3, letter or legal.');

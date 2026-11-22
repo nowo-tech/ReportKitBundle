@@ -13,6 +13,7 @@ use Nowo\ReportKitBundle\Contract\Exception\ReportLimitExceededException;
 use Nowo\ReportKitBundle\Contract\PdfDocumentRendererInterface;
 use Nowo\ReportKitBundle\Contract\PdfOptions;
 use Nowo\ReportKitBundle\Infrastructure\Filesystem\PrivateTempDirectory;
+use Psr\Clock\ClockInterface;
 use Twig\Environment;
 
 use function hexdec;
@@ -27,8 +28,13 @@ use function substr;
  * `limits.max_pdf_html_bytes`, then runs one Dompdf instance with {@see ClosedDompdfOptions} in a private per-call
  * directory removed in `finally`. Draws the footer texts and the running header of {@see PdfOptions}.
  *
+ * Time: the render stops at `PdfOptions::$deadline` (default now + `limits.render_seconds`), checked before Dompdf
+ * and at every page reflow and page render ({@see DompdfDeadline}); the HTML parsing and the style cascade before the
+ * first page are bounded by `limits.max_pdf_html_bytes`.
+ *
  * Worker mode: one Dompdf per call, never kept; Dompdf's static image cache and its global warning list are cleared
- * in `finally` (a failed render would otherwise leave paths to the removed directory and grow the warning list).
+ * in `finally` (a failed render would otherwise leave paths to the removed directory and grow the warning list), and
+ * the `LC_NUMERIC` / `pcre.jit` / mbstring encoding values Dompdf changes are restored ({@see DompdfPhpState}).
  */
 final readonly class DompdfDocumentRenderer implements PdfDocumentRendererInterface
 {
@@ -43,12 +49,14 @@ final readonly class DompdfDocumentRenderer implements PdfDocumentRendererInterf
      * @param PrivateTempDirectory $temp per-call directory
      * @param RenderLimits $limits HTML size guard
      * @param string $fontCache warmed font metrics cache directory
+     * @param ClockInterface $clock clock of the render deadline
      */
     public function __construct(
         private Environment $twig,
         private PrivateTempDirectory $temp,
         private RenderLimits $limits,
         private string $fontCache,
+        private ClockInterface $clock,
     ) {
     }
 
@@ -59,16 +67,38 @@ final readonly class DompdfDocumentRenderer implements PdfDocumentRendererInterf
      */
     public function render(string $template, array $context, PdfOptions $options = new PdfOptions()): string
     {
-        $html = $this->twig->render($template, $context);
+        $deadline = $this->deadline($options);
+
+        return $this->dompdf($this->twig->render($template, $context), $options, $deadline);
+    }
+
+    /**
+     * The PDF bytes of ready HTML.
+     */
+    public function renderHtml(string $html, PdfOptions $options = new PdfOptions()): string
+    {
+        return $this->dompdf($html, $options, $this->deadline($options));
+    }
+
+    private function deadline(PdfOptions $options): DompdfDeadline
+    {
+        return new DompdfDeadline($this->clock, $options->deadline ?? $this->clock->now()->modify('+' . $this->limits->renderSeconds . ' seconds'), $this->limits->renderSeconds);
+    }
+
+    private function dompdf(string $html, PdfOptions $options, DompdfDeadline $deadline): string
+    {
         if (strlen($html) > $this->limits->maxPdfHtmlBytes) {
             throw new ReportLimitExceededException(ReportLimitExceededException::PDF_HTML_BYTES, $this->limits->maxPdfHtmlBytes);
         }
+        $deadline();
 
         $dir = $this->temp->create();
         try {
             $fontCache = is_dir($this->fontCache) && is_writable($this->fontCache) ? $this->fontCache : null;
+            $state     = DompdfPhpState::snapshot();
             $dompdf    = new Dompdf(ClosedDompdfOptions::create($dir, $fontCache));
             try {
+                $dompdf->setCallbacks($deadline->callbacks());
                 $dompdf->setPaper($options->paper, $options->landscape ? 'landscape' : 'portrait');
                 $dompdf->loadHtml($html, 'UTF-8');
                 $dompdf->render();
@@ -78,6 +108,7 @@ final readonly class DompdfDocumentRenderer implements PdfDocumentRendererInterf
             } finally {
                 Cache::clear();
                 DompdfWarnings::clear();
+                DompdfPhpState::restore($state);
             }
         } finally {
             $this->temp->discard($dir);
