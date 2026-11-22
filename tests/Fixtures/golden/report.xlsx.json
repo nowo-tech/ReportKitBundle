@@ -1,0 +1,99 @@
+{
+    "About": [
+        [
+            "Orders"
+        ],
+        [
+            "Last 30 days · Acme"
+        ],
+        [
+            "2026-11-22 10:00 +00:00"
+        ]
+    ],
+    "Key figures": [
+        [
+            "Figure",
+            "Value",
+            "Change (%)"
+        ],
+        [
+            "Orders",
+            1234,
+            12
+        ],
+        [
+            "Revenue",
+            9876.5,
+            -4
+        ],
+        [
+            "Top country",
+            "Spain"
+        ]
+    ],
+    "Orders per day": [
+        [
+            "Day",
+            "Web",
+            "Shop"
+        ],
+        [
+            "2026-11-20",
+            3,
+            1
+        ],
+        [
+            "2026-11-21",
+            5,
+            0
+        ],
+        [
+            "2026-11-22",
+            2,
+            4
+        ]
+    ],
+    "By status": [
+        [
+            "Status",
+            "Orders"
+        ],
+        [
+            "paid",
+            7
+        ],
+        [
+            "open",
+            3
+        ]
+    ],
+    "Customers": [
+        [
+            "Name",
+            "Note",
+            "Amount"
+        ],
+        [
+            "=HYPERLINK(\"http://x.test\",\"y\")",
+            "+1+1",
+            10
+        ],
+        [
+            "-2+3",
+            "@SUM(A1)",
+            2.5
+        ],
+        [
+            "\tTAB",
+            "\rCR"
+        ],
+        [
+            "ok;=1+1",
+            "plain",
+            -3
+        ],
+        [
+            "Only the first 4 rows are included."
+        ]
+    ]
+}

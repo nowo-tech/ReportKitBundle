@@ -1,0 +1,276 @@
+{#
+    NowoReportKitBundle — PDF print template of a report (contract 221-C §8; Beacon's report/pdf.html.twig generalised).
+    Dompdf: CSS 2.1 tables for layout, inline styles, no remote resources, no scripts, images only as data: URIs.
+    Variables: report (Report), sections (PdfSectionView items), brand {name, accent, logo|null}, locale.
+    Every block can be overridden: {% extends '@!NowoReportKit/pdf/report.html.twig' %} (docs/TEMPLATES.md).
+#}
+{% trans_default_domain 'NowoReportKitBundle' %}
+{% set empty_titles = [] %}
+{% set shown = [] %}
+{% for item in sections %}
+    {% set is_empty = (item.kind == 'series' and item.total == 0)
+        or (item.kind == 'slices' and (item.slices is empty or item.slices|reduce((sum, s) => sum + s.value, 0) == 0))
+        or (item.kind not in ['kpis', 'series', 'slices'] and item.rows is empty) %}
+    {% if is_empty %}
+        {% set empty_titles = empty_titles|merge([item.section.title]) %}
+    {% else %}
+        {% set shown = shown|merge([item]) %}
+    {% endif %}
+{% endfor %}
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}">
+<head>
+    <meta charset="utf-8">
+    <title>{{ report.title }} — {{ brand.name }}</title>
+    <style>
+{% block styles %}
+        @page { margin: 16mm 14mm 18mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 8.5pt; color: #212529; line-height: 1.38; }
+        .masthead { width: 100%; border-collapse: collapse; }
+        .masthead td { vertical-align: top; padding: 0; }
+        .masthead__mark { width: 12mm; padding-top: 1mm !important; }
+        .masthead__mark img { width: 9mm; height: 9mm; }
+        .eyebrow { font-size: 7pt; font-weight: bold; letter-spacing: .12em; text-transform: uppercase; color: {{ brand.accent }}; }
+        h1 { font-size: 17pt; margin: .5mm 0 0; font-weight: bold; color: #111418; line-height: 1.2; }
+        .masthead__meta { text-align: right; font-size: 7.5pt; color: #6c757d; width: 62mm; padding-top: 1mm !important; }
+        .masthead__meta a { color: {{ brand.accent }}; text-decoration: none; }
+        .summary { margin-top: 2.5mm; padding: 2.5mm 3mm; background: #f8f9fa; border-left: 1.2mm solid {{ brand.accent }}; font-family: 'DejaVu Sans Mono', monospace; font-size: 8pt; color: #111418; }
+        .glance { margin-top: 2.5mm; padding: 2.5mm 3mm; background: #f8f9fa; border-left: 1.2mm solid {{ brand.accent }}; font-size: 8.5pt; color: #111418; }
+        .glance__label { font-size: 7pt; font-weight: bold; text-transform: uppercase; letter-spacing: .06em; color: {{ brand.accent }}; margin-right: 2mm; }
+        .badges { margin-top: 2.5mm; }
+        .badge { display: inline-block; padding: .6mm 2.2mm; margin-right: 1.5mm; border-radius: 3mm; font-size: 7pt; font-weight: bold; text-transform: uppercase; letter-spacing: .04em; }
+        .badge--bad { background: #fde2e2; color: #a61e1e; }
+        .badge--warn { background: #fff0d6; color: #8a5300; }
+        .badge--good { background: #dff3e4; color: #1f6b33; }
+        .badge--neutral { background: #eceff1; color: #495057; }
+        .masthead__rule { height: 1mm; background: {{ brand.accent }}; margin: 4mm 0 6mm; }
+
+        .section { margin-bottom: 6.5mm; page-break-inside: avoid; }
+        .section--long { page-break-inside: auto; }
+        h2 { font-size: 10.5pt; margin: 0 0 2.5mm; color: #111418; page-break-after: avoid; }
+        h2 .num { color: {{ brand.accent }}; padding-right: 2mm; }
+
+        /* Key figures: four compact cards per row, each with its trend. */
+        .cards { width: 100%; border-collapse: separate; border-spacing: 2mm 2mm; margin: -2mm -2mm 0; }
+        .card { width: 25%; border: .6pt solid #dee2e6; border-radius: 1.8mm; padding: 2.4mm 2.8mm; vertical-align: top; background: #fbfbfc; }
+        .card__label { font-size: 6.5pt; color: #6c757d; text-transform: uppercase; letter-spacing: .05em; height: 6mm; }
+        .card__value { font-size: 14pt; font-weight: bold; color: #111418; }
+        .card__value--text { font-size: 10pt; margin-top: .8mm; }
+        .card__spark { margin-top: 1mm; height: 5mm; }
+        .card__spark img { width: 26mm; height: 5mm; }
+        .card__delta { font-size: 7pt; margin-top: .6mm; }
+        .tone-good { color: #2b8a3e; }
+        .tone-bad { color: #c92a2a; }
+        .tone-neutral { color: #6c757d; }
+
+        /* Daily series. */
+        .chart img { width: 100%; }
+        .legend { margin-top: 1.2mm; font-size: 7.5pt; color: #495057; }
+        .legend__swatch { display: inline-block; width: 2.4mm; height: 2.4mm; margin-right: 1mm; vertical-align: middle; }
+        .legend__item { margin-right: 4mm; white-space: nowrap; }
+        .stats { width: 100%; border-collapse: collapse; margin-top: 1.5mm; }
+        .stats td { font-size: 7.5pt; color: #6c757d; padding: 0; }
+        .stats strong { color: #212529; font-size: 9pt; }
+
+        /* Shares. */
+        .slices { width: 100%; border-collapse: collapse; }
+        .slices td { padding: 1.1mm 0; vertical-align: middle; }
+        .slices__label { width: 34%; padding-right: 3mm !important; }
+        .slices__track { background: #f1f3f5; height: 3mm; }
+        .slices__bar { height: 3mm; }
+        .slices__value { width: 16%; text-align: right; white-space: nowrap; color: #495057; }
+
+        /* Tables. */
+        table.data { width: 100%; border-collapse: collapse; }
+        table.data thead { display: table-header-group; }
+        table.data th { text-align: left; font-size: 7pt; font-weight: bold; color: #495057; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1pt solid {{ brand.accent }}; padding: 1.4mm 2mm; }
+        table.data td { padding: 1.3mm 2mm; border-bottom: .4pt solid #e9ecef; vertical-align: top; }
+        table.data tr { page-break-inside: avoid; }
+        table.data tbody tr:nth-child(even) td { background: #f8f9fa; }
+        .num { text-align: right !important; white-space: nowrap; }
+        .note { color: #6c757d; font-size: 7pt; margin-top: 1.5mm; }
+
+        /* Details: label / value pairs. */
+        table.details { width: 100%; border-collapse: collapse; }
+        table.details td { padding: 1.3mm 2mm; border-bottom: .4pt solid #e9ecef; vertical-align: top; }
+        table.details .details__label { width: 28%; color: #6c757d; font-size: 7.5pt; }
+        table.details .details__value { color: #111418; }
+
+        /* Stack trace: the app's own frames stand out, framework frames fade. */
+        table.trace { width: 100%; border-collapse: collapse; font-family: 'DejaVu Sans Mono', monospace; font-size: 7pt; }
+        table.trace td { padding: .9mm 2mm; border-bottom: .3pt solid #f1f3f5; vertical-align: top; }
+        table.trace .trace__n { width: 7mm; color: #adb5bd; text-align: right; }
+        table.trace tr.trace--app td { color: #111418; font-weight: bold; }
+        table.trace tr.trace--app td.trace__n { border-left: .9mm solid {{ brand.accent }}; color: {{ brand.accent }}; }
+        table.trace tr.trace--vendor td { color: #868e96; }
+        .trace__legend { margin-top: 1.2mm; font-size: 7pt; color: #6c757d; }
+
+        /* Tags as chips. */
+        .chip { display: inline-block; margin: 0 1.5mm 1.5mm 0; padding: .7mm 2mm; border: .5pt solid #dee2e6; border-radius: 1.2mm; font-size: 7.5pt; }
+        .chip__key { color: #6c757d; }
+
+        /* Comments as quotes. */
+        .quote { margin: 0 0 2.5mm; padding: 1.5mm 3mm; border-left: .9mm solid #dee2e6; page-break-inside: avoid; }
+        .quote__meta { font-size: 7pt; color: #6c757d; margin-bottom: .6mm; }
+
+        .empty-note { margin-top: 2mm; padding: 2.5mm 3mm; border: .6pt dashed #dee2e6; color: #6c757d; font-size: 7.5pt; }
+{% endblock %}
+    </style>
+</head>
+<body>
+{% block masthead %}
+    <table class="masthead">
+        <tr>
+            {% if brand.logo %}<td class="masthead__mark"><img src="{{ brand.logo }}" alt="{{ brand.name }}"></td>{% endif %}
+            <td>
+                <div class="eyebrow">{{ brand.name }}</div>
+                <h1>{{ report.title }}</h1>
+            </td>
+            <td class="masthead__meta">
+                {{ report.filters }}<br>
+                {{ 'report.generated'|trans({'%date%': report.generatedAt|date('Y-m-d H:i T')}, 'NowoReportKitBundle', locale) }}
+                {% if report.link %}<br><a href="{{ report.link }}">{{ 'report.open_in_app'|trans({}, 'NowoReportKitBundle', locale) }}</a>{% endif %}
+            </td>
+        </tr>
+    </table>
+    {% if report.glance %}<div class="glance"><span class="glance__label">{{ 'report.at_a_glance'|trans({}, 'NowoReportKitBundle', locale) }}</span>{{ report.glance }}</div>{% endif %}
+    {% if report.summary and report.summary != report.title %}<div class="summary">{{ report.summary|slice(0, 400) }}</div>{% endif %}
+    {% if report.badges is not empty %}
+        <div class="badges">
+            {% for badge in report.badges %}<span class="badge badge--{{ badge.tone }}">{{ badge.label }}</span>{% endfor %}
+        </div>
+    {% endif %}
+    <div class="masthead__rule"></div>
+{% endblock %}
+
+{% block sections %}
+
+    {% for item in shown %}
+        {% set section = item.section %}
+        {% set long = item.kind in ['table', 'trace'] and section.rows|length > 25 %}
+        <div class="section{{ long ? ' section--long' : '' }}">
+            <h2><span class="num">{{ loop.index }}</span>{{ section.title }}</h2>
+
+            {% if item.kind == 'kpis' %}
+                <table class="cards">
+                    {% for row in item.cards|batch(4) %}
+                        <tr>
+                            {% for card in row %}
+                                <td class="card">
+                                    <div class="card__label">{{ card.label }}</div>
+                                    <div class="card__value{{ card.text ? ' card__value--text' : '' }}">{{ card.value }}</div>
+                                    {% if card.spark %}<div class="card__spark"><img src="{{ card.spark }}" alt=""></div>{% endif %}
+                                    {% if card.tone != 'none' %}
+                                        <div class="card__delta tone-{{ card.tone in ['good', 'bad'] ? card.tone : 'neutral' }}">
+                                            {% if card.delta is same as(null) %}
+                                                {{ (card.tone in ['good', 'bad'] ? 'report.delta.new' : 'report.delta.none')|trans({}, 'NowoReportKitBundle', locale) }}
+                                            {% else %}
+                                                {{ card.delta > 0 ? '▲ +' ~ card.delta : (card.delta < 0 ? '▼ ' ~ card.delta : '= 0') }} % {{ 'report.delta.vs_previous'|trans({}, 'NowoReportKitBundle', locale) }}
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                            {% if row|length < 4 %}{% for i in 1..(4 - row|length) %}<td style="width: 25%"></td>{% endfor %}{% endif %}
+                        </tr>
+                    {% endfor %}
+                </table>
+                {% if item.cut is not null %}<p class="note">{{ 'report.truncated'|trans({'%count%': item.cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
+                {% if item.spark_cut is not null %}<p class="note">{{ 'report.spark_truncated'|trans({'%count%': item.spark_cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
+
+            {% elseif item.kind == 'series' %}
+                <div class="chart"><img src="{{ item.svg }}" alt="{{ 'report.chart_alt'|trans({'%title%': section.title}, 'NowoReportKitBundle', locale) }}"></div>
+                <div class="legend">
+                    {% for entry in item.legend %}
+                        <span class="legend__item"><span class="legend__swatch" style="background: {{ entry[1] }}"></span>{{ entry[0] }}</span>
+                    {% endfor %}
+                </div>
+                <table class="stats">
+                    <tr>
+                        <td>{{ 'report.stat.total'|trans({}, 'NowoReportKitBundle', locale) }}<br><strong>{{ item.total|number_format }}</strong></td>
+                        <td>{{ 'report.stat.peak'|trans({}, 'NowoReportKitBundle', locale) }}<br><strong>{{ item.peak|number_format }}</strong>{% if item.peak_day %} · {{ item.peak_day }}{% endif %}</td>
+                        <td>{{ 'report.stat.mean'|trans({}, 'NowoReportKitBundle', locale) }}<br><strong>{{ item.mean|number_format(1) }}</strong></td>
+                        <td style="text-align: right">{{ 'report.stat.daily_in_exports'|trans({}, 'NowoReportKitBundle', locale) }}</td>
+                    </tr>
+                </table>
+                {% if item.cut is not null %}<p class="note">{{ 'report.truncated'|trans({'%count%': item.cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
+
+            {% elseif item.kind == 'slices' %}
+                <table class="slices">
+                    {% for slice in item.slices %}
+                        <tr>
+                            <td class="slices__label">{{ slice.label }}</td>
+                            <td><div class="slices__track">{% if slice.width > 0 %}<div class="slices__bar" style="width: {{ slice.width }}%; background: {{ slice.colour }}"></div>{% endif %}</div></td>
+                            <td class="slices__value">{{ slice.value|number_format }} · {{ slice.share }} %</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+                {% if item.cut is not null %}<p class="note">{{ 'report.truncated'|trans({'%count%': item.cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
+
+            {% elseif item.kind == 'details' %}
+                <table class="details">
+                    {% for row in item.rows %}
+                        <tr><td class="details__label">{{ row[0] }}</td><td class="details__value">{{ row[1] is same as(null) ? '—' : row[1] }}</td></tr>
+                    {% endfor %}
+                </table>
+
+            {% elseif item.kind == 'trace' %}
+                <table class="trace">
+                    {% for row in item.rows %}
+                        <tr class="{{ item.highlight[loop.index0]|default(false) ? 'trace--app' : 'trace--vendor' }}">
+                            <td class="trace__n">{{ row[0] }}</td>
+                            <td>{{ row[1] }}</td>
+                            <td>{{ row[2] }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+                <p class="trace__legend">{{ 'report.trace_legend'|trans({}, 'NowoReportKitBundle', locale) }}</p>
+                {% if item.cut is not null %}<p class="note">{{ 'report.truncated'|trans({'%count%': item.cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
+
+            {% elseif item.kind == 'tags' %}
+                <div>
+                    {% for row in item.rows %}<span class="chip"><span class="chip__key">{{ row[0] }}</span> {{ row[1] }}</span>{% endfor %}
+                </div>
+
+            {% elseif item.kind == 'comments' %}
+                {% for row in item.rows %}
+                    <div class="quote">
+                        <div class="quote__meta">{{ row[1]|default('—') }} · {{ row[0] }}</div>
+                        <div>{{ row[2] }}</div>
+                    </div>
+                {% endfor %}
+
+            {% else %}
+                <table class="data">
+                    <thead>
+                        <tr>
+                            {% for header in section.headers %}
+                                <th scope="col"{% if item.numeric[loop.index0] %} class="num"{% endif %}>{{ header }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in item.rows %}
+                            <tr>
+                                {% for cell in row %}
+                                    <td{% if item.numeric[loop.index0] %} class="num"{% endif %}>{{ cell is same as(null) ? '—' : (item.percent[loop.index0] ? (cell > 0 ? '+' : '') ~ cell ~ ' %' : (item.numeric[loop.index0] ? cell|number_format(cell == cell|round ? 0 : 1) : cell)) }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if item.cut is not null %}<p class="note">{{ 'report.truncated'|trans({'%count%': item.cut}, 'NowoReportKitBundle', locale) }}</p>{% endif %}
+            {% endif %}
+        </div>
+    {% endfor %}
+
+{% endblock %}
+
+{% block empty_note %}
+    {% if empty_titles is not empty %}
+        <div class="empty-note">{{ 'report.empty_sections'|trans({'%sections%': empty_titles|join(', ')}, 'NowoReportKitBundle', locale) }}</div>
+    {% endif %}
+{% endblock %}
+</body>
+</html>

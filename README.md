@@ -6,16 +6,18 @@
 
 **Reports and scheduled exports for Symfony: report types with parameter schemas, PDF / XLSX / CSV / JSON renderers, server-side SVG charts, on-screen report pages and per-owner scheduled e-mail subscriptions.**
 
-> 🚧 **Status: S0 scaffold, no release yet.** The package is built slice by slice from its design contract
-> ([docs/CONTRACT.md](docs/CONTRACT.md), 221-C). S0 ships the bundle class, the strict configuration tree and every
-> quality gate; the features below land with the slices in [docs/ROADMAP.md](docs/ROADMAP.md).
+> 🚧 **Status: S1 (model + renderers), no release yet.** The package is built slice by slice from its design contract
+> ([docs/CONTRACT.md](docs/CONTRACT.md), 221-C). S1 ships the report model, the type registry and parameter schema,
+> the CSV / XLSX / PDF / JSON renderers, SVG charts, the closed PDF runner and the brand resolver, used from your own
+> controllers; pages, subscriptions and the API land with the next slices in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 > 📋 **Compatible with Symfony 7.4, 8.0 and 8.1** · PHP 8.2+ (Symfony 8.x requires PHP 8.4+)
 
 ![FrankenPHP Friendly Worker Mode](docs/images/frankenphp-friendly.png)
 
 This bundle is built for **FrankenPHP worker mode with the kernel kept alive and not reset between requests**: no
-request state in services, a worker test (one kernel, 2,000 requests) from the first slice.
+request state in services, a worker test (one kernel, 2,000 requests) and a worker export test (500 alternating PDF /
+XLSX / CSV exports by two owners in two locales, no temporary file left, flat memory).
 
 **Standard Symfony by default, DDD / hexagonal opt-in:** zero configuration in a standard project; public ports are
 interfaces and value objects, bundle-owned tables are mapped in XML and referenced by id, the bundle never flushes your
@@ -23,7 +25,10 @@ EntityManager.
 
 ![Report Kit Bundle demo: the S0 status page with the demo masthead and the Symfony web debug toolbar](docs/images/demo/overview.webp)
 
-## Features (planned, see the roadmap)
+## Features
+
+Available since S1: the report model, the type registry with parameter schemas, every renderer, the SVG charts and
+the generic PDF runner. Planned (see the roadmap): pages, subscriptions, operator page, bridges and the API.
 
 - **Report model**: `Report` and `ReportSection` (key values with delta, tone and sparkline; tables with optional chart
   kind and presentation style; truncation note), badges, glance line, link.
@@ -52,8 +57,10 @@ See [docs/INSTALLATION.md](docs/INSTALLATION.md). Nothing is registered while `n
 ```yaml
 # config/packages/nowo_report_kit.yaml
 nowo_report_kit:
-    enabled: false
+    enabled: true          # false (default) registers nothing
 ```
+
+Write a report type and export it: [docs/USAGE.md](docs/USAGE.md).
 
 Every key of the contract is already accepted (strict tree): [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
@@ -62,6 +69,7 @@ Every key of the contract is already accepted (strict tree): [docs/CONFIGURATION
 - [Installation](docs/INSTALLATION.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Usage](docs/USAGE.md) (incl. using it from a DDD / hexagonal application)
+- [Templates](docs/TEMPLATES.md)
 - [Contributing](docs/CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Changelog](docs/CHANGELOG.md)
@@ -80,6 +88,7 @@ Every key of the contract is already accepted (strict tree): [docs/CONFIGURATION
 - [PSR evaluation (REQ-CS-007)](docs/PSR.md)
 - [Demo with FrankenPHP](docs/DEMO-FRANKENPHP.md)
 - [FrankenPHP worker audit (kernel not reset)](docs/FRANKENPHP-WORKER-AUDIT.md)
+- [Concurrency (REQ-RUNTIME-003)](docs/CONCURRENCY.md)
 - [GitHub Actions CI requirements](docs/GITHUB_CI.md)
 
 ## Requirements
@@ -99,8 +108,8 @@ make test-coverage-100  # fails below 100 % of src/
 make release-check      # every gate, demo included
 ```
 
-- Tests: PHPUnit (unit, integration: kernel, database on SQLite / MySQL / PostgreSQL, kept-alive worker)
-- PHP: 100% (296/296 lines in CI, gate `make test-coverage-100`)
+- Tests: PHPUnit (unit, golden files for CSV / XLSX / JSON, PDF text extraction, Dompdf-closed tests, integration: kernel, both host kinds, database on SQLite / MySQL / PostgreSQL, kept-alive worker and worker export loop)
+- PHP: 100% (gate `make test-coverage-100`)
 - TS/JS: N/A
 - Python: N/A
 

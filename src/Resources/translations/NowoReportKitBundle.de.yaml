@@ -1,3 +1,30 @@
 # de: translation domain NowoReportKitBundle (REQ-I18N-002: same keys in en, es, it, fr, pt, de, nl).
 bundle:
     name: "Berichte"
+report:
+    truncated: 'Nur die ersten %count% Zeilen sind enthalten.'
+    spark_truncated: 'Die Trends zeigen die letzten %count% Punkte.'
+    sheet:
+        about: 'Info'
+    page: 'Seite %page% von %pages%'
+    generated: 'Erstellt am %date%'
+    open_in_app: 'In der App öffnen'
+    at_a_glance: 'Auf einen Blick'
+    delta:
+        new: 'Neu'
+        none: 'Kein Vergleich'
+        vs_previous: 'gegenüber dem Vorzeitraum'
+    chart_alt: 'Diagramm: %title%'
+    stat:
+        total: 'Gesamt'
+        peak: 'Spitze'
+        mean: 'Tagesmittel'
+        daily_in_exports: 'Die Tageswerte stehen in den CSV- und XLSX-Exporten'
+    trace_legend: 'Hervorgehobene Frames sind eigener Code der Anwendung.'
+    empty_sections: 'Keine Daten für: %sections%'
+    scope:
+        all: 'Alle zugänglichen Kontexte'
+        all_unavailable: 'Alle zugänglichen Kontexte (der angefragte Kontext ist nicht verfügbar)'
+    filters:
+        period: 'Letzte %count% Tage'
+        period_scope: 'Letzte %count% Tage · %scope%'

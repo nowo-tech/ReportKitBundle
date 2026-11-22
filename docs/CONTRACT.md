@@ -314,7 +314,7 @@ mapping; additive 1.x changes in `UPGRADING.md`; the demo keeps its own migratio
   numbers and escaped labels only.
 - **Limits** (`REQ-RUNTIME-001`): PDF table rows ≤ 120 and cells ≤ 180 chars (Beacon's values; CSV / XLSX keep
   everything), `limits.max_rows_per_section` (50,000) for CSV / XLSX, a render time budget (`limits.render_seconds`,
-  default 25 s, checked between sections) and an HTML size guard before Dompdf (`limits.max_pdf_html_bytes`, 5 MB).
+  default 25 s, checked between sections and inside Dompdf at every page) and an HTML size guard before Dompdf (`limits.max_pdf_html_bytes`, 5 MB).
 - **CSV:** UTF-8 BOM; every text cell starting with `=`, `+`, `-`, `@`, tab or CR is prefixed with `'`
   (`REQ-QA-019`), through ControllerKit's `CsvStreamedResponse` when installed or the bundle's guard (same tests).
 - **XLSX:** OpenSpout writes strings as string cells (never formulas); sheet names sanitised (`[]:*?/\`, 31 chars,
@@ -465,7 +465,8 @@ Subscriptions are not managed through the API in 1.0. No unversioned aliases (ne
 - Mail goes through the host's platform mail transport (`REQ-MESSENGER-006`); run messages through its maintenance
   transport (Beacon `async_maintenance`).
 - Handlers stop after `messenger.max_seconds` and re-dispatch the rest (`REQ-MESSENGER-007/009`); one PDF render is
-  bounded by `limits.render_seconds`.
+  bounded by `limits.render_seconds` (S1: checked between sections and inside Dompdf at every page reflow and page
+  render; the parsing before the first page is bounded by `limits.max_pdf_html_bytes`).
 - Without Messenger, `dispatch-due` runs the claimed rows synchronously (small installs; documented as not for
   production with many subscriptions).
 - Slot arithmetic is Beacon's `ReportSchedule::next()` extended with `hour` and `timezone` (computed in local time,

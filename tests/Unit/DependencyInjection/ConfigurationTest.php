@@ -28,7 +28,8 @@ final class ConfigurationTest extends TestCase
             'json' => ['enabled' => false],
         ], $config['formats']);
         self::assertSame('report', $config['filename_prefix']);
-        self::assertSame(['resolver' => null], $config['brand']);
+        self::assertNull($config['temp_dir']);
+        self::assertSame(['resolver' => null, 'context_type' => 'project'], $config['brand']);
         self::assertSame([
             'cache_pool'           => 'cache.rate_limiter',
             'exports'              => ['limit' => 20, 'interval' => '10 minutes'],
@@ -62,18 +63,19 @@ final class ConfigurationTest extends TestCase
     {
         $config = $this->process([
             'enabled'         => true,
-            'owner'           => ['type' => 'member', 'resolver' => 'app.owners'],
             'types'           => ['order' => ['executive_summary', 'uptime'], 'disabled' => ['workload']],
             'scope'           => ['resolver' => 'app.scope', 'access_checker' => 'app.report_access'],
             'formats'         => ['csv' => ['enabled' => false], 'xlsx' => ['enabled' => false], 'pdf' => ['paper' => 'letter'], 'json' => ['enabled' => true]],
             'filename_prefix' => 'beacon-report',
+            'temp_dir'        => '/var/tmp/reports',
+            'mail'            => ['template' => 'emails/report.html.twig'],
             'limits'          => ['exports' => ['limit' => 5, 'interval' => '1 hour']],
             'subscriptions'   => ['frequencies' => ['weekly'], 'default_hour' => 0],
             'schedule'        => ['enabled' => true, 'cron' => '*/5 * * * *', 'default_timezone' => 'America/New_York'],
-            'mail'            => ['enabled' => true],
             'links'           => ['base_url' => 'http://localhost:8223'],
             'bridges'         => ['instance_settings' => 'auto', 'notify_kit' => false],
-            'web_ui'          => ['enabled' => true, 'path_prefix' => '/analytics/reports'],
+            'web_ui'          => ['enabled' => true, 'path_prefix' => '/analytics/reports', 'layout_template' => '@!NowoUiKit/layout.html.twig', 'templates' => ['show' => 'reports/show.html.twig']],
+            'owner'           => ['type' => 'member', 'resolver' => 'app.owners', 'class' => self::class],
             'admin_ui'        => ['enabled' => true],
             'api'             => ['enabled' => true],
         ]);
@@ -82,6 +84,8 @@ final class ConfigurationTest extends TestCase
         self::assertSame(['weekly'], $config['subscriptions']['frequencies']);
         self::assertSame('America/New_York', $config['schedule']['default_timezone']);
         self::assertSame('auto', $config['bridges']['instance_settings']);
+        self::assertSame('/var/tmp/reports', $config['temp_dir']);
+        self::assertSame(self::class, $config['owner']['class']);
     }
 
     /**
@@ -115,6 +119,16 @@ final class ConfigurationTest extends TestCase
         yield 'time zone' => [['schedule' => ['default_timezone' => 'CEST+1']], 'Expected a time zone identifier'];
         yield 'base url' => [['links' => ['base_url' => 'example.com']], 'Expected null or an absolute http(s) URL'];
         yield 'path' => [['web_ui' => ['path_prefix' => '/reports/']], 'Expected an absolute path without a trailing slash'];
+        yield 'owner class missing (ZE-I4)' => [['owner' => ['class' => 'App\\Entity\\Missing']], 'Expected null or an existing class name'];
+        yield 'pdf template traversal (ZE-I4)' => [['formats' => ['pdf' => ['template' => '@NowoReportKit/../secret.twig']]], 'Expected a Twig template name'];
+        yield 'pdf template not twig' => [['formats' => ['pdf' => ['template' => '/etc/passwd']]], 'Expected a Twig template name'];
+        yield 'mail template scheme' => [['mail' => ['template' => 'http://x.test/a.twig']], 'Expected a Twig template name'];
+        yield 'layout double slash' => [['web_ui' => ['layout_template' => 'a//b.html.twig']], 'Expected a Twig template name'];
+        yield 'page template' => [['web_ui' => ['templates' => ['index' => 'index.html']]], 'Expected a Twig template name'];
+        yield 'rows above the hard cap (ZG-I6)' => [['limits' => ['max_rows_per_section' => 50001]], 'nowo_report_kit.limits.max_rows_per_section'];
+        yield 'brand context type' => [['brand' => ['context_type' => 'Project']], 'Expected null or a context type'];
+        yield 'temp dir empty' => [['temp_dir' => ''], 'Expected null or a directory path'];
+        yield 'temp dir nul' => [['temp_dir' => "/tmp/\0x"], 'Expected null or a directory path'];
         yield 'admin path' => [['admin_ui' => ['path_prefix' => '']], 'Expected an absolute path without a trailing slash'];
     }
 

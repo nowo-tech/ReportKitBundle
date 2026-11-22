@@ -9,6 +9,7 @@ in the batch before 1.0.0.
 
 - [Slices](#slices)
 - [Owner decisions (2026-11-12)](#owner-decisions-2026-11-12)
+- [S1 notes (contract deviations)](#s1-notes-contract-deviations)
 - [Open questions for Beacon](#open-questions-for-beacon)
 
 ## Slices
@@ -41,6 +42,28 @@ Every owner question of the contract is answered with its recommendation:
 | Q-O9 | Unready mailer: skip the run and keep the schedule |
 | Q-O10 | `PdfDocumentRendererInterface` is public API of this bundle |
 | 221-A Q-O11 / Q-O12 | XML mapping by default + attribute twin; `OwnerRef` copied in this bundle |
+
+## S1 notes (contract deviations)
+
+Additive changes to the contract text, kept for review before 0.1.0:
+
+| Item | Contract | S1 | Why |
+| --- | --- | --- | --- |
+| `ReportTypeInterface::translationDomain()` | not listed | added | §8 says type titles come from the host's domain (`title_domain` per type); the page and the PDF need it |
+| `Report::$locale` | not listed | added (last, optional) | the renderers translate the bundle's texts with the report locale explicitly, so a scheduled run never switches the worker's translator |
+| `ReportRequest::$contextLabel` | not listed | added (last, optional) | filters line and file name name the context by its label (`ContextChoice::label`, S2) |
+| `ReportParameters::$contextUnavailable` | not listed | added | audit ZE-I3: the effective scope is "all accessible" and the files say so |
+| `ReportParametersResolverInterface` | builder resolves parameters (§4.2) | separate port in S1 | the builder (`ReportBuilderInterface`) needs the scope resolver and access checker SPIs, which are S2 |
+| `PdfDocumentRendererInterface::renderHtml()`, `PdfOptions::$deadline` | not listed | added | ready host HTML (Beacon billing PDFs, Q-B4); the render deadline enforced inside Dompdf (audit ZG-M1) |
+| `brand.context_type` | not listed | new key (default `project`) | brand scopes are ids only (audit ZG-L4) |
+| `ReportExporterInterface::formats()` | not listed | added | the Export menu (S2) and the API (S6) list the formats that are on right now |
+| `RenderedFile` | `{filename, contentType, stream\|path, size}` | `php://temp` stream only | no path for a caller to clean up (worker mode) |
+| `ReportBrandResolverInterface` returns `Brand` | as written | as written | the logo goes in through the host's optional `BrandAssetReaderInterface` as a data URI |
+| `temp_dir` | not listed | new key (default null = system temp dir) | the private per-call directories need a configurable parent (read-only root file systems) |
+| `ReportExportedEvent` | §6.5 | not in S1 | the event carries the owner and context, which the exporter does not know; dispatched by the export routes in S2 |
+| Permission without checker refuses to build | §4.3 | S2 | with the access checker SPI |
+| Rate limits `limits.exports` / `views` | §6.4 | S2 | they guard routes |
+| `ReportSection` cap | `limits.max_rows_per_section` | hard cap 50,000 in the VO + configured cap in every renderer | a VO cannot read configuration |
 
 ## Open questions for Beacon
 

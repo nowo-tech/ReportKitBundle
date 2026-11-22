@@ -12,7 +12,11 @@
 
 - PHP 8.2 to 8.5 (Symfony 8.x needs PHP 8.4+).
 - Symfony 7.4, 8.0 or 8.1 (CI covers 7.4 and 8.1).
-- The package is in its scaffold stage (S0): see [ROADMAP.md](ROADMAP.md) before you depend on it.
+- The package is built slice by slice (S1 today: model and renderers): see [ROADMAP.md](ROADMAP.md) before you depend on it.
+- Optional engines (Q-O3): `dompdf/dompdf ^3.1` for PDF, `openspout/openspout ^4.28 || ^5.0` for XLSX; CSV needs nothing.
+- A translator (`framework.translator`) and, for the PDF, `symfony/twig-bundle`.
+- Twig Extra (REQ-TWIG-004): the package requires `twig/extra-bundle` and `twig/string-extra`; enable
+  `Twig\Extra\TwigExtraBundle\TwigExtraBundle` (Flex does it) in every app that renders `@NowoReportKit/...` templates.
 
 ## Install
 
@@ -33,8 +37,9 @@ return [
 
 ## Enable the bundle
 
-Nothing is registered while `nowo_report_kit.enabled` is false (the default). In S0 the bundle only validates its
-configuration and publishes these container parameters:
+Nothing is registered while `nowo_report_kit.enabled` is false (the default). With `enabled: true` the S1 services are
+registered (see [USAGE.md](USAGE.md)); in both cases the bundle validates its configuration and publishes these
+container parameters:
 
 | Parameter | Value |
 | --- | --- |

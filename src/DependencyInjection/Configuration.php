@@ -8,12 +8,14 @@ use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
+use function class_exists;
 use function is_string;
 use function preg_match;
+use function str_contains;
 
 /**
  * Strict configuration tree of `nowo_report_kit` (contract 221-C §7). Every key exists from S0 so hosts can write the
- * final configuration now; S0 itself registers nothing.
+ * final configuration now; `enabled: false` registers nothing.
  */
 final class Configuration implements ConfigurationInterface
 {
@@ -41,7 +43,12 @@ final class Configuration implements ConfigurationInterface
                                 ->thenInvalid('Expected an owner type matching ^[a-z][a-z0-9_]{0,31}$, got %s.')
                             ->end()
                         ->end()
-                        ->scalarNode('class')->defaultNull()->info('Host user class of the default Doctrine owner resolver')->end()
+                        ->scalarNode('class')->defaultNull()->info('Host user class of the default Doctrine owner resolver')
+                            ->validate()
+                                ->ifTrue(static fn (mixed $value): bool => $value !== null && (!is_string($value) || !class_exists($value)))
+                                ->thenInvalid('Expected null or an existing class name (audit ZE-I4), got %s.')
+                            ->end()
+                        ->end()
                         ->scalarNode('id_field')->defaultValue('id')->cannotBeEmpty()->end()
                         ->append(ConfigNodes::service('resolver', 'Owner resolver service; null = Doctrine resolver'))
                         ->append(ConfigNodes::service('directory', 'People directory service (name, e-mail, locale, time zone)'))
@@ -62,6 +69,12 @@ final class Configuration implements ConfigurationInterface
                     ->end()
                 ->end()
                 ->append($this->formats())
+                ->scalarNode('temp_dir')->defaultNull()->info('Parent of the private per-call render directories; null = the system temp dir')
+                    ->validate()
+                        ->ifTrue(static fn (mixed $value): bool => $value !== null && (!is_string($value) || $value === '' || str_contains($value, "\0")))
+                        ->thenInvalid('Expected null or a directory path, got %s.')
+                    ->end()
+                ->end()
                 ->scalarNode('filename_prefix')->defaultValue('report')
                     ->validate()
                         ->ifTrue(static fn (mixed $value): bool => !is_string($value) || preg_match('/^[a-z0-9][a-z0-9_-]{0,63}$/', $value) !== 1)
@@ -72,6 +85,12 @@ final class Configuration implements ConfigurationInterface
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->append(ConfigNodes::service('resolver', 'Brand resolver service (logo, colours, name per context)'))
+                        ->scalarNode('context_type')->defaultValue('project')->info('Context type whose id is the brand scope of the default resolver; null = every type (ids must not collide across types)')
+                            ->validate()
+                                ->ifTrue(static fn (mixed $value): bool => $value !== null && (!is_string($value) || preg_match(self::KEY_PATTERN, $value) !== 1))
+                                ->thenInvalid('Expected null or a context type matching ^[a-z][a-z0-9_]{0,31}$, got %s.')
+                            ->end()
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('limits')
@@ -80,7 +99,7 @@ final class Configuration implements ConfigurationInterface
                         ->scalarNode('cache_pool')->defaultValue('cache.rate_limiter')->cannotBeEmpty()->end()
                         ->append(ConfigNodes::rate('exports', 20, '10 minutes'))
                         ->append(ConfigNodes::rate('views', 60, '1 minute'))
-                        ->integerNode('max_rows_per_section')->defaultValue(50000)->min(1)->max(1000000)->end()
+                        ->integerNode('max_rows_per_section')->defaultValue(50000)->min(1)->max(50000)->info('At most 50,000: ReportSection caps a table there when it is built')->end()
                         ->integerNode('pdf_max_rows')->defaultValue(120)->min(1)->max(10000)->end()
                         ->integerNode('pdf_max_cell')->defaultValue(180)->min(10)->max(10000)->end()
                         ->integerNode('render_seconds')->defaultValue(25)->min(1)->max(300)->end()
@@ -116,7 +135,7 @@ final class Configuration implements ConfigurationInterface
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->append(ConfigNodes::auto('enabled', ConfigNodes::AUTO))
-                        ->scalarNode('template')->defaultValue('@NowoReportKit/email/scheduled_report.html.twig')->cannotBeEmpty()->end()
+                        ->append(ConfigNodes::template('template', '@NowoReportKit/email/scheduled_report.html.twig'))
                         ->integerNode('max_attachment_bytes')->defaultValue(8388608)->min(0)->max(52428800)->end()
                     ->end()
                 ->end()
@@ -156,14 +175,14 @@ final class Configuration implements ConfigurationInterface
                     ->children()
                         ->booleanNode('enabled')->defaultFalse()->end()
                         ->append(ConfigNodes::path('path_prefix', '/reports'))
-                        ->scalarNode('layout_template')->defaultNull()->end()
+                        ->append(ConfigNodes::template('layout_template', null))
                         ->arrayNode('templates')
                             ->addDefaultsIfNotSet()
                             ->children()
-                                ->scalarNode('index')->defaultNull()->end()
-                                ->scalarNode('show')->defaultNull()->end()
-                                ->scalarNode('sections')->defaultNull()->end()
-                                ->scalarNode('schedule_dialog')->defaultNull()->end()
+                                ->append(ConfigNodes::template('index', null))
+                                ->append(ConfigNodes::template('show', null))
+                                ->append(ConfigNodes::template('sections', null))
+                                ->append(ConfigNodes::template('schedule_dialog', null))
                             ->end()
                         ->end()
                         ->arrayNode('security')
@@ -212,7 +231,7 @@ final class Configuration implements ConfigurationInterface
                     ->children()
                         ->append(ConfigNodes::auto('enabled', ConfigNodes::AUTO))
                         ->enumNode('paper')->values(['A4', 'A3', 'letter', 'legal'])->defaultValue('A4')->end()
-                        ->scalarNode('template')->defaultValue('@NowoReportKit/pdf/report.html.twig')->cannotBeEmpty()->end()
+                        ->append(ConfigNodes::template('template', '@NowoReportKit/pdf/report.html.twig'))
                     ->end()
                 ->end()
                 ->arrayNode('json')
