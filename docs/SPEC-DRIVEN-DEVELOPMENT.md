@@ -17,6 +17,7 @@ This repository follows the Nowo spec-driven workflow:
 ## Table of contents
 
 - [User stories (S0)](#user-stories-s0)
+- [User stories (S1)](#user-stories-s1)
 - [Slices](#slices)
 
 ## User stories (S0)
@@ -26,6 +27,18 @@ This repository follows the Nowo spec-driven workflow:
 | US-S0-01 | **As an** integrator, **I want** to install the package and write the final configuration now **so that** later slices only switch features on. |
 | US-S0-02 | **As a** maintainer, **I want** every quality gate (tests, coverage 100 %, PHPStan + worker rules, Igor, CS, Rector, demo smoke) from the first PR **so that** no slice lowers the bar. |
 | US-S0-03 | **As a** platform maintainer, **I want** a worker-mode test (one kernel, many requests) from S0 **so that** each stateful slice extends it. |
+
+## User stories (S1)
+
+Spec: [`specs/002-s1-model-renderers/spec.md`](../specs/002-s1-model-renderers/spec.md).
+
+| ID | Story |
+| --- | --- |
+| US-S1-01 | **As a** host developer, **I want** to write a report type once and export it as CSV, XLSX, PDF or JSON **so that** every format shows the same sections. |
+| US-S1-02 | **As a** viewer, **I want** a report that asks for a context I cannot read to say it covers all my accessible contexts **so that** I am never told it is about something else (ZE-I3). |
+| US-S1-03 | **As a** security reviewer, **I want** the PDF engine closed (no remote, no file, no PHP, no JavaScript) and formulas neutralised in spreadsheets **so that** a report cannot be turned against its reader or the server. |
+| US-S1-04 | **As a** billing developer, **I want** the same closed PDF runner for my own templates **so that** there is one audited Dompdf setup (Q-O10). |
+| US-S1-05 | **As a** platform maintainer, **I want** a worker export test (500 exports, two owners, two locales) **so that** no temp file, locale or data leaks between requests. |
 
 ## Slices
 

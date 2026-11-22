@@ -40,7 +40,7 @@ Set `FRANKENPHP_MODE=classic` in `.env` and recreate the container for one proce
 Nowo\ReportKitBundle\NowoReportKitBundle::class => ['all' => true],
 ```
 
-`config/packages/nowo_report_kit.yaml` keeps `enabled: false` in S0. The home page shows the bundle parameters and the MySQL
+`config/packages/nowo_report_kit.yaml` keeps `enabled: false` (the demo report types and pages come in S2). The home page shows the bundle parameters and the MySQL
 version.
 
 ## Troubleshooting

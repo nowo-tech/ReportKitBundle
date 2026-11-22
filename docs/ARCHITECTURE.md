@@ -8,6 +8,7 @@ follow.
 - [Layers](#layers)
 - [Two host kinds](#two-host-kinds)
 - [S0 contents](#s0-contents)
+- [S1 contents](#s1-contents)
 
 ## Layers
 
@@ -36,3 +37,17 @@ Both paths run the same functional suite from S1 on.
 `NowoReportKitBundle`, `DependencyInjection\NowoReportKitExtension`, `DependencyInjection\Configuration` (strict tree with every
 contract key), `DependencyInjection\ConfigNodes` (shared node definitions), the empty XML mapping folder and the seven
 translation catalogues.
+
+## S1 contents
+
+| Layer | Classes |
+| --- | --- |
+| `Contract` (ports + VOs) | `OwnerRef`, `ContextRef`, `ReportFormat`, `ParameterType`, `ParameterDefinition`, `ParameterSchema`, `ReportParameters`, `ReportRequest`, `ReportWindow`, `Report`, `ReportSection`, `RenderedFile`, `PdfOptions`; ports `ReportTypeInterface` (+ optional `AbstractReportType`), `ReportTypeRegistryInterface`, `ReportParametersResolverInterface`, `ReportExporterInterface`, `PdfDocumentRendererInterface`, `ReportBrandResolverInterface`, `ReportSettingsProviderInterface`; exceptions under `Contract\Exception` |
+| `Application` | `ReportTypeRegistry`, `ReportParametersResolver`, `ConfigReportSettingsProvider`, `Brand\DefaultReportBrandResolver`, `Export\{ReportExporter, RenderBudget, RenderLimits, ReportFileName, ReportRendererInterface}`, `Chart\ReportChartSvg` |
+| `Infrastructure` | `Rendering\{Csv,Xlsx,Json,Pdf}ReportRenderer`, `Rendering\PdfSectionView`, `Pdf\{ClosedDompdfOptions, DompdfDocumentRenderer, DompdfFontCacheWarmer, DompdfWarnings}`, `Csv\{BuiltIn,ControllerKit}CsvCellGuard`, `Filesystem\PrivateTempDirectory`, `Twig\TemplateCheckWarmer` |
+| `Presentation` | `Http\RenderedFileResponder` |
+| `DependencyInjection` | `Compiler\RenderingRequirementsPass` (translator required; Twig for the PDF) |
+
+Flow: host controller → `ReportParametersResolverInterface::resolve()` → `ReportTypeInterface::build(ReportRequest)` →
+`ReportExporterInterface::export()` (format check through the settings provider, time budget, file name) → renderer →
+`RenderedFile` (a `php://temp` stream) → `RenderedFileResponder`.

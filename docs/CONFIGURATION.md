@@ -2,7 +2,9 @@
 
 Root key: `nowo_report_kit`. The tree is **strict** (REQ-SF-006): unknown keys and invalid values are refused at
 container build, and the message names the path and the allowed values. Every key of contract §7 is accepted from S0;
-the column *Used from* says which slice reads it. **S0 registers nothing**, whatever the values.
+the column *Used from* says which slice reads it. **`enabled: false` (the default) registers nothing**; `enabled: true`
+registers the S1 services (report model, type registry, parameter resolver, renderers, closed PDF runner, brand
+resolver, exporter, download responder).
 
 ## Table of contents
 
@@ -26,6 +28,7 @@ nowo_report_kit:
         pdf:  { enabled: auto, paper: A4, template: '@NowoReportKit/pdf/report.html.twig' }   # paper: A4 | A3 | letter | legal
         json: { enabled: false }                  # API only
     filename_prefix: 'report'                     # Beacon: 'beacon-report'
+    temp_dir: null                                # parent of the private per-call render directories; null = system temp dir
     brand: { resolver: null }
     limits:
         cache_pool: cache.rate_limiter
@@ -59,21 +62,32 @@ nowo_report_kit:
 
 | Key | Used from |
 | --- | --- |
-| `enabled`, `types`, `formats`, `filename_prefix`, `brand`, `limits` | S1 |
-| `scope`, `web_ui` | S2 |
+| `enabled`, `types`, `formats`, `filename_prefix`, `temp_dir`, `brand`, `limits` (`max_rows_per_section`, `pdf_max_rows`, `pdf_max_cell`, `render_seconds`, `max_pdf_html_bytes`), `bridges.controller_kit`, `settings_provider`, `schedule.enabled` (read by the settings provider) | S1 |
+| `scope`, `web_ui`, `limits.cache_pool` / `exports` / `views` | S2 |
 | `doctrine`, `owner`, `subscriptions`, `schedule`, `mail`, `links`, `retention`, `messenger` | S3 |
-| `admin_ui`, `bridges` | S4 |
-| `settings_provider` | S5 |
+| `admin_ui`, the other `bridges` | S4 |
 | `api` | S6 |
 
 ## Format engines
 
 Dompdf (`dompdf/dompdf ^3.1`) and OpenSpout (`openspout/openspout`) are suggested, not required (Q-O3). `auto` turns the
-format on when its engine is installed; `true` without the engine refuses to build the container, already in S0:
+format on when its engine is installed; `true` without the engine refuses to build the container:
 
 ```
 "nowo_report_kit.formats.pdf.enabled" is true but Dompdf\Dompdf is not installed: run "composer require dompdf/dompdf" or set it to "auto" (Q-O3).
 ```
+
+The PDF also needs Twig (`symfony/twig-bundle`): without it `auto` turns the PDF off and `true` refuses to build. The
+bundle needs a translator (`framework.translator`, or the identity translator): without one the container refuses to
+build. **The closed PDF runner `PdfDocumentRendererInterface` is registered whenever Dompdf and Twig are present**, even
+with `formats.pdf.enabled: false` (Q-O10: invoices and other documents use it).
+
+`bridges.controller_kit` (`auto` by default) picks ControllerKit's `CsvSafeWriter` as the CSV formula guard when
+`nowo-tech/controller-kit-bundle` is installed, else the bundle's own guard (same rules, one shared test table, Q-O4);
+`true` without the package refuses to build.
+
+`settings_provider`: a service implementing `ReportSettingsProviderInterface` (rule 8) replaces the configuration values
+at runtime (`enabled()`, `formatsEnabled()`, `schedulesEnabled()`); it is read on every export, never memoised.
 
 ## Container parameters
 
@@ -83,6 +97,7 @@ format on when its engine is installed; `true` without the engine refuses to bui
 | `nowo_report_kit.api_prefix` | `api.prefix` |
 | `nowo_report_kit.table_prefix` | `doctrine.table_prefix` |
 | `nowo_report_kit.config` | the processed tree |
+| `nowo_report_kit.formats` | (only when enabled) the formats switched on and installed, e.g. `['csv', 'xlsx', 'pdf']` |
 
 ## Validation rules
 
@@ -92,3 +107,9 @@ format on when its engine is installed; `true` without the engine refuses to bui
 - `links.base_url`: null or an absolute `http(s)://` URL without a trailing slash.
 - Tri-state switches (`formats.xlsx|pdf.enabled`, `mail.enabled`, `bridges.*`): `true`, `false` or `"auto"`.
 - Paths: absolute, no trailing slash. Rate-limit intervals: `<n> second|minute|hour|day[s]`.
+- Template names (`formats.pdf.template`, `mail.template`, `web_ui.layout_template`, `web_ui.templates.*`, audit ZE-I4):
+  `@Namespace/path/name.html.twig` or `path/name.html.twig` (`@!` allowed), letters, digits, `_`, `-`, `.` and `/`,
+  ending in `.twig`, no `..` and no `//`. The templates of the features that are on must exist: a missing
+  `formats.pdf.template` stops `cache:warmup` with the configuration path in the message.
+- `owner.class`: null or an existing class (audit ZE-I4).
+- `temp_dir`: null or a non-empty path; the directory must be writable at runtime (a clear error otherwise).
