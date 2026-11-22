@@ -151,7 +151,8 @@ jobs:
           for p in $(jq -r '."require-dev" | keys[] | select(startswith("symfony/")) | select(endswith("-contracts") | not)' composer.json); do dev="$dev $p:^${{ matrix.symfony }}"; done
           composer require $req --no-interaction --no-update
           composer require --dev $dev --no-interaction --no-update
-          composer update "symfony/*" "doctrine/*" "twig/*" "nowo-tech/*" --with-all-dependencies --no-interaction --prefer-dist --no-progress
+          # The suggested format engines (Q-O3) float with the PHP version: OpenSpout 4.x needs PHP <= 8.4, 5.x needs 8.4+.
+          composer update "symfony/*" "doctrine/*" "twig/*" "nowo-tech/*" "openspout/*" "dompdf/*" --with-all-dependencies --no-interaction --prefer-dist --no-progress
       - name: Composer audit (Critical/High)
         if: env.HEAVY == 'true'
         run: composer audit --locked
