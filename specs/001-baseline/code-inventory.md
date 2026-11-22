@@ -4,7 +4,7 @@
 **Package**: `nowo-tech/report-kit-bundle`
 **Last audited**: 2026-11-22 (S1)
 
-Scope: every file under `src/`. Audit command: `find src -type f | wc -l` → **65**.
+Scope: every file under `src/`. Audit command: `find src -type f | wc -l` → **67**.
 
 | Source file | Requirement IDs |
 | --- | --- |
@@ -53,8 +53,10 @@ Scope: every file under `src/`. Audit command: `find src -type f | wc -l` → **
 | `src/Infrastructure/Csv/CsvCellGuardInterface.php` | FR-RENDER-CSV |
 | `src/Infrastructure/Filesystem/PrivateTempDirectory.php` | FR-PDF-001, FR-RENDER-XLSX, FR-WORKER-002 |
 | `src/Infrastructure/Pdf/ClosedDompdfOptions.php` | FR-PDF-001 |
+| `src/Infrastructure/Pdf/DompdfDeadline.php` | FR-PDF-001, FR-EXPORT-001 |
 | `src/Infrastructure/Pdf/DompdfDocumentRenderer.php` | FR-PDF-001, FR-WORKER-002 |
 | `src/Infrastructure/Pdf/DompdfFontCacheWarmer.php` | FR-PDF-001 |
+| `src/Infrastructure/Pdf/DompdfPhpState.php` | FR-PDF-001, FR-WORKER-002 |
 | `src/Infrastructure/Pdf/DompdfWarnings.php` | FR-PDF-001, FR-WORKER-002 |
 | `src/Infrastructure/Rendering/CsvReportRenderer.php` | FR-RENDER-CSV |
 | `src/Infrastructure/Rendering/JsonReportRenderer.php` | FR-RENDER-JSON |
@@ -74,5 +76,5 @@ Scope: every file under `src/`. Audit command: `find src -type f | wc -l` → **
 | `src/Resources/translations/NowoReportKitBundle.pt.yaml` | FR-I18N-001, FR-I18N-002 |
 | `src/Resources/views/pdf/report.html.twig` | FR-RENDER-PDF |
 
-| Total production sources | 65 |
+| Total production sources | 67 |
 | --- | --- |

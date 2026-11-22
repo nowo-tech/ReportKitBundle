@@ -34,9 +34,13 @@ rendering safety below ships in S1; access control arrives with the pages in S2.
   `CsvSafeWriter` when installed, the bundle's identical guard otherwise; one test table runs against both.
 - **XLSX.** Every string is written as a string cell, never a formula (OpenSpout would turn a plain `=…` value into a
   formula); the golden test asserts no `<f>` element in any sheet. Sheet names sanitised.
-- **Limits (`REQ-RUNTIME-001`).** `max_rows_per_section` (CSV / XLSX / JSON), `pdf_max_rows` and `pdf_max_cell` (PDF),
-  `render_seconds` checked between sections, `max_pdf_html_bytes` before Dompdf. `ReportSection` also caps a table at
-  50,000 rows when it is built.
+- **Limits (`REQ-RUNTIME-001`, audit ZG-M1).** `max_rows_per_section` (CSV / XLSX / JSON, at most 50,000, the
+  `ReportSection` hard cap). In the PDF every kind is bounded: table rows, key-figure cards and share bars to
+  `pdf_max_rows`, series columns to min(366, `pdf_max_rows`), sparkline points to the latest 366, text cells to
+  `pdf_max_cell`; each cut prints the truncation note. Time: `render_seconds` is checked between sections and
+  **inside Dompdf** at every page reflow and page render (`begin_page_reflow` / `begin_page_render` callbacks,
+  `ReportLimitExceededException`); the HTML parsing and style cascade before the first page are bounded by
+  `max_pdf_html_bytes`, checked before Dompdf runs.
 - **Responses.** `RenderedFileResponder`: `Cache-Control: no-store, private`, `Content-Disposition: attachment` from
   `HeaderUtils::makeDisposition()` with an ASCII fallback, `X-Content-Type-Options: nosniff`; file names slugged to
   `[a-z0-9-]`.

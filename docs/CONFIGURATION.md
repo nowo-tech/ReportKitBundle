@@ -29,12 +29,12 @@ nowo_report_kit:
         json: { enabled: false }                  # API only
     filename_prefix: 'report'                     # Beacon: 'beacon-report'
     temp_dir: null                                # parent of the private per-call render directories; null = system temp dir
-    brand: { resolver: null }
+    brand: { resolver: null, context_type: project }   # context_type: whose id is the brand scope; null = every type
     limits:
         cache_pool: cache.rate_limiter
         exports: { limit: 20, interval: '10 minutes' }
         views: { limit: 60, interval: '1 minute' }
-        max_rows_per_section: 50000
+        max_rows_per_section: 50000               # 1 to 50,000 (the ReportSection hard cap)
         pdf_max_rows: 120
         pdf_max_cell: 180
         render_seconds: 25
@@ -85,6 +85,11 @@ with `formats.pdf.enabled: false` (Q-O10: invoices and other documents use it).
 `bridges.controller_kit` (`auto` by default) picks ControllerKit's `CsvSafeWriter` as the CSV formula guard when
 `nowo-tech/controller-kit-bundle` is installed, else the bundle's own guard (same rules, one shared test table, Q-O4);
 `true` without the package refuses to build.
+
+`brand.context_type` (default `project`): brand-contracts scopes are ids only, so the default resolver scopes only
+contexts of this type; other types get the instance brand (audit ZG-L4: `team:42` never takes the brand of
+`project:42`). `null` scopes every type by id, for hosts whose context ids never collide across types; a host with
+several branded context types sets `brand.resolver`.
 
 `settings_provider`: a service implementing `ReportSettingsProviderInterface` (rule 8) replaces the configuration values
 at runtime (`enabled()`, `formatsEnabled()`, `schedulesEnabled()`); it is read on every export, never memoised.

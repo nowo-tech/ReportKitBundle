@@ -29,7 +29,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - `ReportBrandResolverInterface` with the brand-contracts default (scoped provider, provider, neutral brand);
     `ReportSettingsProviderInterface` (rule 8); `ReportExporterInterface` with the render time budget;
     `RenderedFileResponder` (`no-store, private`, safe `Content-Disposition`).
-  - Limits: `max_rows_per_section`, `pdf_max_rows`, `pdf_max_cell`, `render_seconds`, `max_pdf_html_bytes`.
+  - Limits: `max_rows_per_section` (at most 50,000), `pdf_max_rows` (table rows, cards and share bars), series columns
+    (min(366, `pdf_max_rows`)), sparkline points (366), `pdf_max_cell`, `render_seconds` (between sections and inside
+    Dompdf at every page through its callbacks), `max_pdf_html_bytes`; every PDF cut prints the truncation note.
+  - `PdfDocumentRendererInterface::renderHtml()` for HTML the host already rendered (Beacon invoices and receipts) and
+    `PdfOptions::$deadline`.
+  - Report titles, filters lines, summaries, glance lines, badge labels and context labels are cleaned (valid UTF-8, no
+    control characters).
+  - `brand.context_type` (default `project`): only contexts of that type are brand scopes.
+  - `conflict` with `nowo-tech/controller-kit-bundle <2.3.1` (its CSV guard lacks the separator rule).
   - Configuration: new key `temp_dir`; template names and `owner.class` validated, and the PDF template must exist at
     `cache:warmup` (audit ZE-I4); a translator is required, Twig for the PDF.
   - Translations of the report texts in the seven locales; `docs/TEMPLATES.md`, `docs/CONCURRENCY.md`.
@@ -38,8 +46,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     `WorkerExportLoopTest` (500 alternating PDF / XLSX / CSV exports, two owners, two locales, no temp file left,
     translator locale untouched, memory drift < 4 MiB).
 
-  - Worker mode: Dompdf's global warning list and static image cache are emptied after every render, so a long-lived
-    worker neither grows nor keeps paths to removed temporary files (Beacon's renderer has the same exposure).
+  - Worker mode: Dompdf's global warning list and static image cache are emptied after every render, and the
+    `LC_NUMERIC` / `pcre.jit` / mbstring encoding values Dompdf changes are restored even when a render fails, so a
+    long-lived worker neither grows nor keeps paths to removed files or a changed locale (Beacon's renderer has the same
+    exposure).
 
 ### Changed
 

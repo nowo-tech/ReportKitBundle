@@ -72,7 +72,8 @@
    ```
 
    `ReportExporterInterface::formats()` lists what can be exported right now. A format that is off throws
-   `FormatNotEnabledException`; a render over `limits.render_seconds` or `max_pdf_html_bytes` throws
+   `FormatNotEnabledException`; a render over `limits.render_seconds` (checked between sections and inside Dompdf at
+   every page) or `max_pdf_html_bytes` throws
    `ReportLimitExceededException` (nothing is returned, every temporary file is already gone).
 
 4. Branding: with brand-contracts' `BrandProviderInterface` in the container the files carry its name, accent colour and
@@ -94,8 +95,11 @@
 
 ## The closed PDF runner for other documents
 
-`PdfDocumentRendererInterface` (Q-O10) renders **any** Twig template with the same closed Dompdf setup (only `data:`
-URIs load, no remote, no PHP, no JavaScript, private per-call chroot):
+`PdfDocumentRendererInterface` (Q-O10) renders **any** Twig template (`render()`) or HTML you already rendered
+(`renderHtml()`) with the same closed Dompdf setup (only `data:` URIs load, no remote, no PHP, no JavaScript,
+private per-call chroot), the same `max_pdf_html_bytes` guard and a deadline (`PdfOptions::$deadline`, default now +
+`limits.render_seconds`, enforced at every page). Paper (`A4`, `A3`, `letter`, `legal`) and orientation
+(`landscape: true`) come from `PdfOptions`:
 
 ```php
 $bytes = $pdf->render('billing/invoice.html.twig', ['invoice' => $invoice], new PdfOptions(
@@ -106,7 +110,12 @@ $bytes = $pdf->render('billing/invoice.html.twig', ['invoice' => $invoice], new 
 ));
 ```
 
-Embed images as data URIs (`BrandAssetDataUri::fromBytes()`); a file path or a URL is never read.
+```php
+$bytes = $pdf->renderHtml($invoiceHtml, new PdfOptions(paper: 'letter', landscape: true));
+```
+
+Embed images as data URIs (`data:image/png;base64,…`, e.g. `BrandAssetDataUri::fromBytes()`); a file path or a URL is
+never read. Do not declare `@font-face` in PDF templates (see [TEMPLATES.md](TEMPLATES.md)).
 
 ## FrankenPHP worker mode
 

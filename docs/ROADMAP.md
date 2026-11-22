@@ -54,6 +54,8 @@ Additive changes to the contract text, kept for review before 0.1.0:
 | `ReportRequest::$contextLabel` | not listed | added (last, optional) | filters line and file name name the context by its label (`ContextChoice::label`, S2) |
 | `ReportParameters::$contextUnavailable` | not listed | added | audit ZE-I3: the effective scope is "all accessible" and the files say so |
 | `ReportParametersResolverInterface` | builder resolves parameters (§4.2) | separate port in S1 | the builder (`ReportBuilderInterface`) needs the scope resolver and access checker SPIs, which are S2 |
+| `PdfDocumentRendererInterface::renderHtml()`, `PdfOptions::$deadline` | not listed | added | ready host HTML (Beacon billing PDFs, Q-B4); the render deadline enforced inside Dompdf (audit ZG-M1) |
+| `brand.context_type` | not listed | new key (default `project`) | brand scopes are ids only (audit ZG-L4) |
 | `ReportExporterInterface::formats()` | not listed | added | the Export menu (S2) and the API (S6) list the formats that are on right now |
 | `RenderedFile` | `{filename, contentType, stream\|path, size}` | `php://temp` stream only | no path for a caller to clean up (worker mode) |
 | `ReportBrandResolverInterface` returns `Brand` | as written | as written | the logo goes in through the host's optional `BrandAssetReaderInterface` as a data URI |

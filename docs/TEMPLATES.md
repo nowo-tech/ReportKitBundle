@@ -30,4 +30,6 @@ override the bundle template in `templates/bundles/NowoReportKitBundle/pdf/repor
 {% block styles %}{{ parent() }} h1 { font-size: 20pt; }{% endblock %}
 ```
 
-Keep autoescaping on and embed images as data URIs only: the closed Dompdf setup refuses every other source.
+Keep autoescaping on and embed images as data URIs only: the closed Dompdf setup refuses every other source. Do not
+declare `@font-face` in PDF templates (audit ZG-I2): Dompdf would install the font into its shared font directory and
+cache for every later render; use the bundled DejaVu families.
