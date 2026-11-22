@@ -11,6 +11,7 @@ use Symfony\Component\Config\Definition\Builder\ScalarNodeDefinition;
 use function in_array;
 use function is_string;
 use function preg_match;
+use function str_contains;
 
 /**
  * Reusable node definitions of the strict configuration tree (REQ-SF-006): every error names the path and the
@@ -130,6 +131,33 @@ final class ConfigNodes
             ->end();
 
         return $node;
+    }
+
+    /**
+     * A Twig template name (audit ZE-I4): `@Namespace/path/name.html.twig` or `path/name.html.twig`, no `..`, no
+     * scheme. Existence is checked at warmup for the features that are on.
+     */
+    public static function template(string $name, ?string $default): ScalarNodeDefinition
+    {
+        $node = new ScalarNodeDefinition($name);
+        $default === null ? $node->defaultNull() : $node->defaultValue($default);
+        $node->validate()
+                ->ifTrue(static fn (mixed $value): bool => $value !== null && !self::isTemplateName($value))
+                ->thenInvalid('Expected a Twig template name such as "@NowoReportKit/pdf/report.html.twig" (letters, digits, "_", "-", "." and "/", ending in ".twig", no ".."), got %s.')
+            ->end();
+
+        return $node;
+    }
+
+    /**
+     * Whether $value is a safe Twig template name ({@see self::template()}).
+     */
+    public static function isTemplateName(mixed $value): bool
+    {
+        return is_string($value)
+            && preg_match('#^(@!?[A-Za-z][A-Za-z0-9_]*/)?[A-Za-z0-9_][A-Za-z0-9_./-]{0,200}\.twig$#D', $value) === 1
+            && !str_contains($value, '..')
+            && !str_contains($value, '//');
     }
 
     /**

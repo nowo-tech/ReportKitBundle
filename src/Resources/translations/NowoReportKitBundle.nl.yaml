@@ -1,3 +1,29 @@
 # nl: translation domain NowoReportKitBundle (REQ-I18N-002: same keys in en, es, it, fr, pt, de, nl).
 bundle:
     name: "Rapporten"
+report:
+    truncated: 'Alleen de eerste %count% rijen zijn opgenomen.'
+    sheet:
+        about: 'Over'
+    page: 'Pagina %page% van %pages%'
+    generated: 'Gemaakt op %date%'
+    open_in_app: 'Openen in de app'
+    at_a_glance: 'In één oogopslag'
+    delta:
+        new: 'Nieuw'
+        none: 'Geen vergelijking'
+        vs_previous: 't.o.v. de vorige periode'
+    chart_alt: 'Grafiek: %title%'
+    stat:
+        total: 'Totaal'
+        peak: 'Piek'
+        mean: 'Daggemiddelde'
+        daily_in_exports: 'De waarden per dag staan in de CSV- en XLSX-exports'
+    trace_legend: 'Gemarkeerde frames zijn eigen code van de applicatie.'
+    empty_sections: 'Geen gegevens voor: %sections%'
+    scope:
+        all: 'Alle toegankelijke contexten'
+        all_unavailable: 'Alle toegankelijke contexten (de gevraagde context is niet beschikbaar)'
+    filters:
+        period: 'Laatste %count% dagen'
+        period_scope: 'Laatste %count% dagen · %scope%'

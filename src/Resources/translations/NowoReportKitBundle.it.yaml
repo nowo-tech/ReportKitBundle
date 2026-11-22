@@ -1,3 +1,29 @@
 # it: translation domain NowoReportKitBundle (REQ-I18N-002: same keys in en, es, it, fr, pt, de, nl).
 bundle:
     name: "Report"
+report:
+    truncated: 'Sono incluse solo le prime %count% righe.'
+    sheet:
+        about: 'Informazioni'
+    page: 'Pagina %page% di %pages%'
+    generated: 'Generato il %date%'
+    open_in_app: 'Apri nell''app'
+    at_a_glance: 'In sintesi'
+    delta:
+        new: 'Nuovo'
+        none: 'Nessun confronto'
+        vs_previous: 'rispetto al periodo precedente'
+    chart_alt: 'Grafico: %title%'
+    stat:
+        total: 'Totale'
+        peak: 'Picco'
+        mean: 'Media giornaliera'
+        daily_in_exports: 'I valori giorno per giorno sono nelle esportazioni CSV e XLSX'
+    trace_legend: 'I frame evidenziati sono codice proprio dell''applicazione.'
+    empty_sections: 'Nessun dato per: %sections%'
+    scope:
+        all: 'Tutti i contesti accessibili'
+        all_unavailable: 'Tutti i contesti accessibili (il contesto richiesto non è disponibile)'
+    filters:
+        period: 'Ultimi %count% giorni'
+        period_scope: 'Ultimi %count% giorni · %scope%'
