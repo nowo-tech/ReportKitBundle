@@ -35,21 +35,23 @@ Twig are installed, no XLSX `quotePrefix`) were accepted by the owner on 2026-11
 
 What is left:
 
-- **Slices S2 to S6** (none started): pages and export routes, subscriptions and runs (owner-scoped scheduled mail),
-  operator page and GDPR, docs and i18n, public API. S3 and the S6 API need an **immediate** REQ-SEC-004 audit before
+- **S2** (pages and export routes) is built on `feat/s2-pages` (PR open, not tagged); its contract deviations are in
+  [S2 notes](#s2-notes-contract-deviations).
+- **Slices S3 to S6** (not started): subscriptions and runs (owner-scoped scheduled mail), operator page and GDPR, docs
+  and i18n, public API. S3 and the S6 API need an **immediate** REQ-SEC-004 audit before
   their tags; the other slices are audited in the batch.
 - **REQ gaps:** the last grade (2026-11-22) was done at S0 (`f5fc912`, no tag): 107 ok / 0 warn / 0 fail / 1 unknown
   (REQ-SEC-004) / 34 n/a. The unknown is covered by the appendices below; the checklist row still says "regrade needed"
   and a regrade at `v0.1.0` is due. Final `bundle-req-audit` at 100 % of the applicable REQs after S6.
 - **REQ-SEC-004:** appendix ZE (S0) and appendix ZG (0.1.0, S1, HOLD then GO after the re-check; Info items ZG-I2, I3, I5,
-  I9 to I11 open for later slices and docs). Nothing covers S2 to S6 yet.
+  I9 to I11 open for later slices and docs). Nothing covers S2 to S6 yet (S2 goes to the batch audit).
 - **Open Info items to carry:** ZG-I10 (document that a caller deadline should not exceed the request budget) and ZG-I11
   (sort share-bar slices by value) are docs notes.
 - **Owner decisions:** none open. Q-O1 to Q-O10 answered 2026-11-12; Beacon Q-B1 to Q-B5 answered as recommended.
   Dompdf worker leak notice to Beacon is the coordinator's task, not a bundle decision.
 - **Final gate:** `bundle-req-audit` at 100 %, then the REQ-SEC-004 batch audit over S0 to S6, then `1.0.0`.
 
-Distance to 1.0.0: large (six of seven slices not started).
+Distance to 1.0.0: large (S2 in review, four slices not started).
 
 ## Owner decisions (2026-11-12)
 
