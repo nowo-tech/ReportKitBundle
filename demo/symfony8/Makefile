@@ -110,10 +110,12 @@ PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.64.0-jammy
 test-e2e: verify
 	@mkdir -p e2e/node_modules
 	@PORT=$$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '\r'); PORT=$${PORT:-8223}; \
+	MAILPIT=$$(grep -E '^MAILPIT_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '\r'); MAILPIT=$${MAILPIT:-8224}; \
 	docker run --rm --network host \
 		-v "$(CURDIR)/e2e:/e2e" -w /e2e \
 		-e CI="$${CI:-}" \
 		-e DEMO_BASE_URL=http://127.0.0.1:$$PORT \
+		-e MAILPIT_URL=http://127.0.0.1:$$MAILPIT \
 		$(PLAYWRIGHT_IMAGE) \
 		bash -lc 'npm ci --no-fund --no-audit && npx playwright test --project=chromium'
 

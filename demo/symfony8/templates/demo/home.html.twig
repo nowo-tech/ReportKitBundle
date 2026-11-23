@@ -14,6 +14,13 @@
         {% block section_body %}
             {% if app.user %}
                 <p data-testid="demo-signed-in">Signed in as <strong>{{ app.user.userIdentifier }}</strong>. <a href="{{ path('nowo_report_kit_index') }}">Open the reports</a> · <a href="{{ path('demo_sign_out') }}">Sign out</a></p>
+                {% if run_due %}
+                    <p>Scheduled reports (S3): schedule a report from its page (<em>Schedule by e-mail</em>), then send your due reports now; the mails land in Mailpit.</p>
+                    {{ form_start(run_due, {attr: {'data-testid': 'demo-run-due'}}) }}
+                    {{ form_widget(run_due) }}
+                    <div class="nowo-ui-form__actions"><button type="submit" class="nowo-ui-btn nowo-ui-btn--secondary" data-testid="demo-run-due-submit">Send my due reports now</button></div>
+                    {{ form_end(run_due) }}
+                {% endif %}
             {% else %}
                 {{ form_start(sign_in, {attr: {'data-testid': 'demo-sign-in'}}) }}
                 {{ form_row(sign_in.user) }}
@@ -22,8 +29,8 @@
             {% endif %}
         {% endblock %}
     {% endembed %}
-    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'Bundle status', intro: 'S2: report pages (list, report with filters, CSV / XLSX / PDF exports) on two demo types. Subscriptions arrive with S3 (see docs/ROADMAP.md).', kind: 'table'} %}
-        {% block section_actions %}<span class="nowo-ui-badge nowo-ui-badge--info" data-testid="demo-status-badge">S2 pages</span>{% endblock %}
+    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'Bundle status', intro: 'S3: report pages (list, report with filters, CSV / XLSX / PDF exports) on two demo types, and scheduled e-mail subscriptions (schedule dialog, pause / resume / delete, runs as the owner, mail to Mailpit).', kind: 'table'} %}
+        {% block section_actions %}<span class="nowo-ui-badge nowo-ui-badge--info" data-testid="demo-status-badge">S3 subscriptions</span>{% endblock %}
         {% block section_body %}
             <table class="nowo-ui-data-table" data-testid="demo-status">
                 <tbody>
