@@ -1,0 +1,2 @@
+# REQ-DEMO-015: every demo form is a FormKit form (default profile; the report filters use the built-in `filter` profile).
+nowo_form_kit: ~

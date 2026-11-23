@@ -9,6 +9,7 @@ use Nowo\ReportKitBundle\Contract\ReportTypeInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
 use Nowo\ReportKitBundle\Tests\Fixtures\Ddd\FixedBrandResolver;
 use Nowo\ReportKitBundle\Tests\Fixtures\Ddd\HostSettingsProvider;
+use Nowo\ReportKitBundle\Tests\Fixtures\Ddd\LedgerAccess;
 use Nowo\ReportKitBundle\Tests\Fixtures\Ddd\PlainReportType;
 use Nowo\ReportKitBundle\Tests\Fixtures\OrdersReportType;
 use Nowo\ReportKitBundle\Tests\Integration\Kernel\KernelTestCase;
@@ -72,8 +73,10 @@ final class HostKindsTest extends KernelTestCase
             'formats'           => ['json' => ['enabled' => true]],
             'settings_provider' => 'app.report_settings',
             'brand'             => ['resolver' => 'app.report_brand'],
+            'scope'             => ['access_checker' => 'app.report_access'],
         ], services: static function (ContainerConfigurator $c): void {
             $services = $c->services();
+            $services->set('app.report_access', LedgerAccess::class);
             $services->set(PlainReportType::class)->tag(ReportTypeInterface::TAG);
             $services->set('app.report_settings', HostSettingsProvider::class);
             $services->set('app.report_brand', FixedBrandResolver::class);

@@ -93,6 +93,7 @@ final class ParametersTest extends TestCase
         yield 'default not a period' => [static fn (): ParameterSchema => new ParameterSchema([7], 30)];
         yield 'required without context' => [static fn (): ParameterSchema => new ParameterSchema(context: false, contextRequired: true)];
         yield 'reserved extra' => [static fn (): ParameterSchema => new ParameterSchema(extra: ['period' => new ParameterDefinition(ParameterType::Int, 'p')])];
+        yield 'reserved extra type (ZY-I1)' => [static fn (): ParameterSchema => new ParameterSchema(extra: ['type' => new ParameterDefinition(ParameterType::Int, 't')])];
         yield 'bad extra name' => [static fn (): ParameterSchema => new ParameterSchema(extra: ['Top' => new ParameterDefinition(ParameterType::Int, 'p')])];
         yield 'extra not a definition' => [static fn (): ParameterSchema => new ParameterSchema(extra: ['top' => new stdClass()])]; // @phpstan-ignore argument.type
         yield 'too many extras' => [static function (): ParameterSchema {

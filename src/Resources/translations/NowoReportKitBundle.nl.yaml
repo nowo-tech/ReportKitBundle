@@ -28,3 +28,30 @@ report:
     filters:
         period: 'Laatste %count% dagen'
         period_scope: 'Laatste %count% dagen · %scope%'
+index:
+    title: 'Rapporten'
+    intro: 'De rapporten die u kunt openen.'
+    column:
+        title: 'Rapport'
+        description: 'Beschrijving'
+    open: 'Openen'
+    empty: 'Er is geen rapport voor u beschikbaar.'
+show:
+    back: 'Alle rapporten'
+    about: 'Over dit rapport'
+    context_fallback: 'De gevraagde context is niet voor u beschikbaar: het rapport omvat alle contexten waartoe u toegang hebt.'
+    section_empty: 'Geen gegevens voor deze periode.'
+    legend: 'Legenda'
+filter:
+    title: 'Filters'
+    period: 'Periode'
+    period_days: 'Laatste %days% dagen'
+    context: 'Context'
+    all_contexts: 'Alle toegankelijke contexten'
+    apply: 'Toepassen'
+    'yes': 'Ja'
+    'no': 'Nee'
+export:
+    csv: 'CSV exporteren'
+    xlsx: 'XLSX exporteren'
+    pdf: 'PDF exporteren'

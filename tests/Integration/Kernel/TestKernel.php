@@ -92,6 +92,9 @@ final class TestKernel extends Kernel
             'router'                => ['utf8' => true],
             'default_locale'        => 'en',
             'translator'            => ['enabled' => $this->translator, 'fallbacks' => ['en']],
+            // No forms or validation here (the pages have their own kernel): they would register the identity translator.
+            'form'       => ['enabled' => false],
+            'validation' => ['enabled' => false],
         ]);
         if ($this->twig) {
             $container->extension('twig', ['strict_variables' => true]);

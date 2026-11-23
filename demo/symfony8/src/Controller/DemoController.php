@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Form\DemoSignInType;
 use Doctrine\DBAL\Connection;
+use LogicException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Throwable;
 
 /**
- * S0 demo home: shows that the bundle is installed (disabled), the published parameters and the MySQL connection.
+ * Demo home: the bundle status, the demo sign-in (alice / bob, no password) and links to the report pages.
  */
 final class DemoController extends AbstractController
 {
@@ -39,6 +42,22 @@ final class DemoController extends AbstractController
             'table_prefix' => $this->tablePrefix,
             'database'     => $database,
             'worker'       => ($_SERVER['FRANKENPHP_WORKER'] ?? null) !== null,
+            'sign_in'      => $this->createForm(DemoSignInType::class, null, ['action' => $this->generateUrl('demo_sign_in')])->createView(),
         ]);
+    }
+
+    /**
+     * Handled by DemoSignInAuthenticator; reached only without a valid submission.
+     */
+    #[Route('/sign-in', name: 'demo_sign_in', methods: ['POST'])]
+    public function signIn(): RedirectResponse
+    {
+        return $this->redirectToRoute('demo_home', status: Response::HTTP_SEE_OTHER);
+    }
+
+    #[Route('/sign-out', name: 'demo_sign_out', methods: ['GET'])]
+    public function signOut(): never
+    {
+        throw new LogicException('The firewall handles the sign-out.');
     }
 }

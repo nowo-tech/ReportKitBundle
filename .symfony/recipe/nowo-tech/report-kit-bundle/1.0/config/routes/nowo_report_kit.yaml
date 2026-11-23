@@ -1,0 +1,4 @@
+# Report pages (web_ui.enabled: true): no route while they are off. Protect web_ui.path_prefix in security.yaml.
+nowo_report_kit:
+    resource: .
+    type: nowo_report_kit_ui

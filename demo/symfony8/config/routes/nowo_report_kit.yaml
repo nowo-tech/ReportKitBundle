@@ -1,0 +1,3 @@
+nowo_report_kit:
+    resource: .
+    type: nowo_report_kit_ui

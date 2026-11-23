@@ -69,7 +69,7 @@ final class ConfigNodes
     }
 
     /**
-     * A rate limit `{limit, interval}` (fixed window), e.g. `{limit: 100, interval: '1 minute'}`.
+     * A rate limit `{limit, interval}` (sliding window), e.g. `{limit: 100, interval: '1 minute'}`.
      */
     public static function rate(string $name, int $limit, string $interval): ArrayNodeDefinition
     {

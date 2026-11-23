@@ -1,0 +1,45 @@
+{#
+  NowoReportKitBundle — report page (contract §8): header (title, summary, Export actions), filters line, the filter
+  form (FormKit `filter` profile, GET) and the sections. Variables: page (UiKit ShowPage), report (Report), sections
+  (ScreenSections items), filters (FormView), filters_action (URL), sections_template, context_fallback (bool: the
+  requested context is not available, the report covers every accessible context).
+  Blocks: report_kit_meta, report_kit_filters, report_kit_sections. Override with web_ui.templates.show or
+  {% extends '@!NowoReportKit/web/show.html.twig' %} (docs/TEMPLATES.md).
+#}
+{% extends '@NowoUiKitBundle/page/show.html.twig' %}
+
+{% block nowo_ui_show_after %}
+    {%- set _d = 'NowoReportKitBundle' -%}
+    {%- set _b = page.bundle -%}
+    {% block report_kit_meta %}
+        <section class="{{ nowo_ui_class('card', _b) }}" data-testid="report-kit-meta" aria-labelledby="report-kit-meta-title"{{ nowo_ui_attrs('card', _b) }}>
+            <div class="{{ nowo_ui_class('card_body', _b) }}">
+                <h2 class="{{ nowo_ui_class('card_title', _b) }}" id="report-kit-meta-title">{{ 'show.about'|trans({}, _d) }}</h2>
+                <p data-testid="report-kit-filters-line">{{ report.filters }}</p>
+                <p class="{{ nowo_ui_class('muted', _b) }}">{{ 'report.generated'|trans({'%date%': report.generatedAt|date('Y-m-d H:i T')}, _d) }}</p>
+                {% if report.glance %}<p data-testid="report-kit-glance"><strong>{{ 'report.at_a_glance'|trans({}, _d) }}</strong> {{ report.glance }}</p>{% endif %}
+                {% if report.badges is not empty %}
+                    <p>{% for badge in report.badges %}{{ include(nowo_ui_partial('chip', _b), {label: badge.label, attr: {'data-tone': badge.tone}, bundle: _b}, false) }} {% endfor %}</p>
+                {% endif %}
+                {% if report.link %}<p><a href="{{ report.link }}">{{ 'report.open_in_app'|trans({}, _d) }}</a></p>{% endif %}
+                {% if context_fallback %}<p role="status" data-testid="report-kit-context-fallback">{{ 'show.context_fallback'|trans({}, _d) }}</p>{% endif %}
+            </div>
+        </section>
+    {% endblock %}
+    {% block report_kit_filters %}
+        <section class="{{ nowo_ui_class('card', _b) }}" data-testid="report-kit-filters" aria-labelledby="report-kit-filters-title"{{ nowo_ui_attrs('card', _b) }}>
+            <div class="{{ nowo_ui_class('card_body', _b) }}">
+                <h2 class="{{ nowo_ui_class('card_title', _b) }}" id="report-kit-filters-title">{{ 'filter.title'|trans({}, _d) }}</h2>
+                {#- UiKit's form theme: selects and inputs take the `input` slot (any css_framework, light and dark) -#}
+                {% form_theme filters '@NowoUiKit/form/nowo_ui_layout.html.twig' %}
+                {{ form_start(filters, {action: filters_action, method: 'GET'}) }}
+                {% for child in filters %}{% if not child.rendered %}{{ form_row(child) }}{% endif %}{% endfor %}
+                <div class="{{ nowo_ui_class('form_actions', _b) }}"><button type="submit" class="{{ nowo_ui_class('btn_secondary', _b) }}" data-testid="report-kit-filters-apply">{{ 'filter.apply'|trans({}, _d) }}</button></div>
+                {{ form_end(filters, {render_rest: false}) }}
+            </div>
+        </section>
+    {% endblock %}
+    {% block report_kit_sections %}
+        {{ include(sections_template, {sections: sections, bundle: _b}, false) }}
+    {% endblock %}
+{% endblock %}

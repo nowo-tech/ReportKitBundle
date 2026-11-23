@@ -11,6 +11,8 @@ return [
     Symfony\Bundle\WebProfilerBundle\WebProfilerBundle::class      => ['dev' => true, 'test' => true],
     Nowo\HotReloadBundle\NowoHotReloadBundle::class                => ['dev' => true, 'test' => true],
     Nowo\TwigInspectorBundle\NowoTwigInspectorBundle::class        => ['dev' => true, 'test' => true],
+    Symfony\Bundle\SecurityBundle\SecurityBundle::class            => ['all' => true],
     Nowo\UiKitBundle\NowoUiKitBundle::class                        => ['all' => true],
+    Nowo\FormKitBundle\NowoFormKitBundle::class                    => ['all' => true],
     Nowo\ReportKitBundle\NowoReportKitBundle::class                => ['all' => true],
 ];

@@ -1,3 +1,14 @@
-# S0 scaffold: the bundle is installed and disabled. Later slices turn the demo features on here.
+# S2: the report pages with two demo types (App\Report\*), the demo scope resolver and access checker, every format.
 nowo_report_kit:
-    enabled: false
+    enabled: true
+    owner:
+        id_field: userIdentifier
+    scope:
+        resolver: App\Report\DemoScopeResolver
+        access_checker: App\Report\DemoAccessChecker
+    types:
+        order: [signups, orders_by_status]
+    filename_prefix: demo-report
+    web_ui:
+        enabled: true
+        path_prefix: /reports

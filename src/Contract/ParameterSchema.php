@@ -27,8 +27,8 @@ final readonly class ParameterSchema
     /** Most extra parameters per type. */
     public const MAX_EXTRA = 20;
 
-    /** Names the extras cannot use (they are the period and context query parameters). */
-    public const RESERVED = ['period', 'context', 'format'];
+    /** Names the extras cannot use (the period and context query parameters and the route's `type` / `format`). */
+    public const RESERVED = ['period', 'context', 'format', 'type'];
 
     /** @var list<int> */
     public array $periods;

@@ -17,6 +17,15 @@ use function sprintf;
  * What a report type receives (contract §4.1). `$accessible` holds the contexts the owner may report on for this
  * type, already narrowed by the host; a type must query those contexts only (bounded aggregate queries). The VO
  * offers no way to widen them: the effective context must be one of them.
+ *
+ * `$accessible` is empty in two cases only, which `$contextFreeGrant` tells apart (audit ZY-M1):
+ * - `false`: the type takes no context (`ParameterSchema::$context` false) or the host has no contexts at all
+ *   (`NoContextScopeResolver`): personal or instance-wide data, as the type defines it;
+ * - `true`: the type takes contexts, the host's scope resolver returned none for this person, and the build was
+ *   opened explicitly (`ReportAccessCheckerInterface::allowsWithoutContext()` or a `ReportAccessCheckEvent::grant()`).
+ *   A person with zero contexts is otherwise refused, so a type that sees this flag must decide on purpose what a
+ *   context-free build shows (for example the person's own data, or instance-wide data for an operator), never
+ *   treat it as "no filter" by accident.
  */
 final readonly class ReportRequest
 {
@@ -37,6 +46,8 @@ final readonly class ReportRequest
      * @param bool $scheduled built by a scheduled run (S3) rather than a viewer
      * @param string|null $contextLabel display name of the effective context (filters line, file name); null = its id.
      *                                  Control characters become spaces; empty after cleaning or above 200 characters is refused
+     * @param bool $contextFreeGrant the type takes contexts, the person has none, and the build was opened explicitly
+     *                               (see the class docblock); requires an empty `$accessible`
      */
     public function __construct(
         public OwnerRef $owner,
@@ -48,6 +59,7 @@ final readonly class ReportRequest
         public DateTimeImmutable $now,
         public bool $scheduled = false,
         ?string $contextLabel = null,
+        public bool $contextFreeGrant = false,
     ) {
         $keys = [];
         foreach ($accessible as $context) {
@@ -55,6 +67,9 @@ final readonly class ReportRequest
                 throw new InvalidReportArgumentException('ReportRequest accessible must hold ContextRef values.');
             }
             $keys[] = $context->key();
+        }
+        if ($contextFreeGrant && $keys !== []) {
+            throw new InvalidReportArgumentException('ReportRequest contextFreeGrant requires no accessible context.');
         }
         if ($parameters->context instanceof ContextRef && !in_array($parameters->context->key(), $keys, true)) {
             throw new InvalidReportArgumentException('ReportRequest context must be one of the accessible contexts.');
