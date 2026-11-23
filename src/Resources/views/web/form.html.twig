@@ -1,0 +1,15 @@
+{#
+  NowoReportKitBundle — full page of the schedule form and of the pause / resume / delete confirmations (S3): the UiKit
+  form scaffold (page: View\FormPage) with the form's own errors on top (limit reached, changed meanwhile). The same
+  URL answers the dialog fragment (@NowoReportKit/web/_dialog_form.html.twig) to a remote dialog request.
+  Variables: page, danger (bool: a destructive confirmation), dialog (false here).
+#}
+{% extends '@NowoUiKitBundle/page/form.html.twig' %}
+
+{% block nowo_ui_form_body %}
+    {% form_theme form '@NowoUiKit/form/nowo_ui_layout.html.twig' %}
+    {%- if form.vars.errors|length > 0 -%}
+        <div role="alert" data-testid="report-kit-form-errors">{{ form_errors(form) }}</div>
+    {%- endif -%}
+    {{ parent() }}
+{% endblock %}

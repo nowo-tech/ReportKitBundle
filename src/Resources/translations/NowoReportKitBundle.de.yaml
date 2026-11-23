@@ -42,6 +42,7 @@ show:
     context_fallback: 'Der angeforderte Kontext ist für Sie nicht verfügbar: Der Bericht umfasst alle Kontexte, auf die Sie Zugriff haben.'
     section_empty: 'Keine Daten für diesen Zeitraum.'
     legend: 'Legende'
+    back_to_report: 'Zurück zum Bericht'
 filter:
     title: 'Filter'
     period: 'Zeitraum'
@@ -55,3 +56,84 @@ export:
     csv: 'Als CSV exportieren'
     xlsx: 'Als XLSX exportieren'
     pdf: 'Als PDF exportieren'
+schedule:
+    open: 'Per E-Mail planen'
+    title: 'Per E-Mail planen'
+    intro: 'Erhalten Sie „%report%“ mit den aktuellen Filtern per E-Mail. Nur Sie erhalten ihn, erstellt mit Ihren Zugriffsrechten zum Zeitpunkt des Versands.'
+    submit: 'Planen'
+    frequency:
+        label: 'Häufigkeit'
+        daily: 'Jeden Tag'
+        weekly: 'Jede Woche'
+        monthly: 'Jeden Monat'
+    weekday:
+        label: 'Wochentag'
+        1: 'Montag'
+        2: 'Dienstag'
+        3: 'Mittwoch'
+        4: 'Donnerstag'
+        5: 'Freitag'
+        6: 'Samstag'
+        7: 'Sonntag'
+    month_day: 'Tag des Monats'
+    hour: 'Uhrzeit'
+    timezone: 'Zeitzone'
+    formats: 'Zusätzlich anhängen (PDF wird immer angehängt)'
+    format:
+        xlsx: 'XLSX-Arbeitsmappe'
+        csv: 'CSV-Datei'
+    error:
+        limit: 'Sie haben bereits %limit% geplante Berichte: löschen Sie zuerst einen.'
+        context: 'Der gewählte Kontext ist für Sie nicht verfügbar: wählen Sie vor dem Planen einen anderen.'
+        invalid: 'Prüfen Sie den Zeitplan: ein Wert ist nicht erlaubt.'
+subscriptions:
+    title: 'Per E-Mail geplant'
+    intro: 'Berichte, die Sie per E-Mail erhalten.'
+    empty: 'Sie haben noch keinen geplanten Bericht: öffnen Sie einen Bericht und wählen Sie „Per E-Mail planen“.'
+    column:
+        report: 'Bericht'
+        parameters: 'Parameter'
+        schedule: 'Zeitplan'
+        next_run: 'Nächster Versand'
+        status: 'Status'
+    status:
+        enabled: 'Aktiv'
+        paused:
+            owner: 'Von Ihnen pausiert'
+            operator: 'Von einem Administrator pausiert'
+            owner_inactive: 'Pausiert: Ihr Konto ist nicht aktiv'
+            no_access: 'Pausiert: Sie haben keinen Zugriff mehr'
+            type_removed: 'Pausiert: der Bericht existiert nicht mehr'
+            repeated_failure: 'Nach wiederholten Fehlern pausiert'
+    last:
+        sent: 'zuletzt gesendet'
+        skipped: 'zuletzt übersprungen'
+        failed: 'zuletzt fehlgeschlagen'
+        paused: 'der letzte Lauf hat ihn pausiert'
+    pause:
+        label: 'Pausieren'
+        title: 'Diesen geplanten Bericht pausieren?'
+        message: '„%report%“ wird nicht gesendet, bis Sie ihn fortsetzen.'
+    resume:
+        label: 'Fortsetzen'
+        title: 'Diesen geplanten Bericht fortsetzen?'
+        message: '„%report%“ wird ab dem nächsten Termin wieder gesendet.'
+    delete:
+        label: 'Löschen'
+        title: 'Diesen geplanten Bericht löschen?'
+        message: '„%report%“ wird nicht mehr gesendet. Dies kann nicht rückgängig gemacht werden.'
+    changed: 'Dieser geplante Bericht hat sich inzwischen geändert (ein Lauf oder ein anderer Tab hat ihn aktualisiert). Prüfen Sie ihn und versuchen Sie es erneut.'
+    schedule:
+        daily: 'Jeden Tag um %hour%'
+        weekly: 'Jeden %weekday% um %hour%'
+        monthly: 'Jeden Monat am %day%. um %hour%'
+    parameters: 'Letzte %days% Tage'
+mail:
+    subject: 'Ihr Bericht: %title%'
+    greeting: 'Hallo %name%,'
+    greeting_anonymous: 'Hallo,'
+    attached: 'Der Bericht ist angehängt.'
+    too_large: 'Die Dateien sind zu groß zum Anhängen: öffnen Sie den Bericht, um sie herunterzuladen.'
+    no_files: 'Öffnen Sie den Bericht, um ihn anzusehen.'
+    open: 'Bericht öffnen'
+    manage: 'Geplante Berichte verwalten'

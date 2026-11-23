@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Nowo\ReportKitBundle\Domain\Subscription (contract 221-C §5.1). The table name and the index names get the configured
+  doctrine.table_prefix (default "nowo_"), and the identifier columns a binary NO PAD collation on MySQL / MariaDB,
+  through Nowo\ReportKitBundle\Infrastructure\Doctrine\ReportKitMetadataListener.
+-->
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <entity name="Nowo\ReportKitBundle\Domain\Subscription" table="report_subscription" read-only="true">
+        <indexes>
+            <index name="idx_report_subscription_due" columns="enabled,next_run_at,id"/>
+            <index name="idx_report_subscription_owner" columns="owner_type,owner_id,created_at"/>
+        </indexes>
+
+        <id name="id" type="string" column="id" length="36"/>
+
+        <field name="ownerType" type="string" column="owner_type" length="32"/>
+        <field name="ownerId" type="string" column="owner_id" length="128"/>
+        <field name="reportType" type="string" column="report_type" length="64"/>
+        <field name="parameters" type="json" column="parameters"/>
+        <field name="frequency" type="string" column="frequency" length="16"/>
+        <field name="weekday" type="smallint" column="weekday"/>
+        <field name="monthDay" type="smallint" column="month_day"/>
+        <field name="hour" type="smallint" column="hour"/>
+        <field name="timezone" type="string" column="timezone" length="64"/>
+        <field name="formats" type="json" column="formats"/>
+        <field name="enabled" type="boolean" column="enabled"/>
+        <field name="pauseReason" type="string" column="pause_reason" length="32" nullable="true"/>
+        <field name="nextRunAt" type="datetime_immutable" column="next_run_at"/>
+        <field name="claimToken" type="string" column="claim_token" length="36" nullable="true"/>
+        <field name="claimedAt" type="datetime_immutable" column="claimed_at" nullable="true"/>
+        <field name="lastRunAt" type="datetime_immutable" column="last_run_at" nullable="true"/>
+        <field name="lastStatus" type="string" column="last_status" length="16" nullable="true"/>
+        <field name="lastErrorCode" type="string" column="last_error_code" length="64" nullable="true"/>
+        <field name="consecutiveFailures" type="smallint" column="consecutive_failures"/>
+        <field name="version" type="integer" column="version"/>
+        <field name="createdAt" type="datetime_immutable" column="created_at"/>
+        <field name="updatedAt" type="datetime_immutable" column="updated_at"/>
+    </entity>
+</doctrine-mapping>

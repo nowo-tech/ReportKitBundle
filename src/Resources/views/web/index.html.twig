@@ -1,6 +1,27 @@
 {#
   NowoReportKitBundle — report list (contract §8): the report types the viewer may open, as a UiKit list
-  (title, description, "Open"). Variable: page (UiKit ListPage). Override with web_ui.templates.index or
-  {% extends '@!NowoReportKit/web/index.html.twig' %} (docs/TEMPLATES.md).
+  (title, description, "Open"), then the viewer's *Scheduled by e-mail* table (S3; `subscriptions` is a UiKit Table
+  or null) with pause / resume / delete links that open one lazy remote dialog (`dialog_id`): no form per row.
+  Variables: page (UiKit ListPage), subscriptions (Table|null), dialog_id. Block: report_kit_subscriptions.
+  Override with web_ui.templates.index or {% extends '@!NowoReportKit/web/index.html.twig' %} (docs/TEMPLATES.md).
 #}
 {% extends '@NowoUiKitBundle/page/list.html.twig' %}
+
+{% block nowo_ui_list_after %}
+    {% block report_kit_subscriptions %}
+        {% if subscriptions|default(null) is not null %}
+            {%- set _d = 'NowoReportKitBundle' -%}
+            <section class="{{ nowo_ui_class('card', page.bundle) }}" data-testid="report-kit-subscriptions-section" aria-labelledby="report-kit-subscriptions-title"{{ nowo_ui_attrs('card', page.bundle) }}>
+                <div class="{{ nowo_ui_class('card_body', page.bundle) }}">
+                    <h2 class="{{ nowo_ui_class('card_title', page.bundle) }}" id="report-kit-subscriptions-title">{{ 'subscriptions.title'|trans({}, _d) }}</h2>
+                    {% if subscriptions.rows is empty %}
+                        <p class="{{ nowo_ui_class('muted', page.bundle) }}" data-testid="report-kit-subscriptions-empty">{{ 'subscriptions.empty'|trans({}, _d) }}</p>
+                    {% else %}
+                        {{ include(nowo_ui_partial('table', page.bundle), {table: subscriptions}, false) }}
+                    {% endif %}
+                </div>
+            </section>
+            {{ include(nowo_ui_partial('remote_form_dialog', page.bundle), {id: dialog_id, size: 'md', title: 'subscriptions.title'|trans({}, _d), attr: {'data-testid': 'report-kit-dialog'}, bundle: page.bundle}, false) }}
+        {% endif %}
+    {% endblock %}
+{% endblock %}

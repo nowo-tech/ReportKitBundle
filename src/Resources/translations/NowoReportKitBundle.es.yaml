@@ -42,6 +42,7 @@ show:
     context_fallback: 'El contexto solicitado no está disponible para ti: el informe cubre todos los contextos a los que tienes acceso.'
     section_empty: 'No hay datos para este periodo.'
     legend: 'Leyenda'
+    back_to_report: 'Volver al informe'
 filter:
     title: 'Filtros'
     period: 'Periodo'
@@ -55,3 +56,84 @@ export:
     csv: 'Exportar CSV'
     xlsx: 'Exportar XLSX'
     pdf: 'Exportar PDF'
+schedule:
+    open: 'Programar por correo'
+    title: 'Programar por correo'
+    intro: 'Recibe «%report%» por correo con los filtros actuales. Solo lo recibes tú, generado con tus accesos en el momento del envío.'
+    submit: 'Programar'
+    frequency:
+        label: 'Frecuencia'
+        daily: 'Cada día'
+        weekly: 'Cada semana'
+        monthly: 'Cada mes'
+    weekday:
+        label: 'Día de la semana'
+        1: 'lunes'
+        2: 'martes'
+        3: 'miércoles'
+        4: 'jueves'
+        5: 'viernes'
+        6: 'sábado'
+        7: 'domingo'
+    month_day: 'Día del mes'
+    hour: 'Hora'
+    timezone: 'Zona horaria'
+    formats: 'Adjuntar también (el PDF se adjunta siempre)'
+    format:
+        xlsx: 'Libro XLSX'
+        csv: 'Archivo CSV'
+    error:
+        limit: 'Ya tienes %limit% informes programados: elimina uno antes.'
+        context: 'El contexto seleccionado no está disponible para ti: elige otro antes de programar.'
+        invalid: 'Revisa la programación: hay un valor no permitido.'
+subscriptions:
+    title: 'Programados por correo'
+    intro: 'Informes que recibes por correo.'
+    empty: 'Aún no tienes informes programados: abre un informe y elige «Programar por correo».'
+    column:
+        report: 'Informe'
+        parameters: 'Parámetros'
+        schedule: 'Programación'
+        next_run: 'Próximo envío'
+        status: 'Estado'
+    status:
+        enabled: 'Activo'
+        paused:
+            owner: 'Pausado por ti'
+            operator: 'Pausado por un administrador'
+            owner_inactive: 'Pausado: tu cuenta no está activa'
+            no_access: 'Pausado: ya no tienes acceso'
+            type_removed: 'Pausado: el informe ya no existe'
+            repeated_failure: 'Pausado tras fallos repetidos'
+    last:
+        sent: 'último enviado'
+        skipped: 'último omitido'
+        failed: 'último fallido'
+        paused: 'el último envío lo pausó'
+    pause:
+        label: 'Pausar'
+        title: '¿Pausar este informe programado?'
+        message: '«%report%» no se enviará hasta que lo reanudes.'
+    resume:
+        label: 'Reanudar'
+        title: '¿Reanudar este informe programado?'
+        message: '«%report%» se volverá a enviar desde su próxima franja.'
+    delete:
+        label: 'Eliminar'
+        title: '¿Eliminar este informe programado?'
+        message: '«%report%» dejará de enviarse. No se puede deshacer.'
+    changed: 'Este informe programado ha cambiado mientras tanto (un envío u otra pestaña lo actualizó). Revísalo y vuelve a intentarlo.'
+    schedule:
+        daily: 'Cada día a las %hour%'
+        weekly: 'Cada %weekday% a las %hour%'
+        monthly: 'Cada mes el día %day% a las %hour%'
+    parameters: 'Últimos %days% días'
+mail:
+    subject: 'Tu informe: %title%'
+    greeting: 'Hola, %name%:'
+    greeting_anonymous: 'Hola:'
+    attached: 'El informe va adjunto.'
+    too_large: 'Los archivos son demasiado grandes para adjuntarlos: abre el informe para descargarlos.'
+    no_files: 'Abre el informe para verlo.'
+    open: 'Abrir el informe'
+    manage: 'Gestionar tus informes programados'

@@ -42,6 +42,7 @@ show:
     context_fallback: 'The requested context is not available to you: the report covers every context you can access.'
     section_empty: 'No data for this period.'
     legend: 'Legend'
+    back_to_report: 'Back to the report'
 filter:
     title: 'Filters'
     period: 'Period'
@@ -55,3 +56,84 @@ export:
     csv: 'Export CSV'
     xlsx: 'Export XLSX'
     pdf: 'Export PDF'
+schedule:
+    open: 'Schedule by e-mail'
+    title: 'Schedule by e-mail'
+    intro: 'Receive “%report%” by e-mail with the current filters. Only you receive it, built with your access at the time it is sent.'
+    submit: 'Schedule'
+    frequency:
+        label: 'Frequency'
+        daily: 'Every day'
+        weekly: 'Every week'
+        monthly: 'Every month'
+    weekday:
+        label: 'Weekday'
+        1: 'Monday'
+        2: 'Tuesday'
+        3: 'Wednesday'
+        4: 'Thursday'
+        5: 'Friday'
+        6: 'Saturday'
+        7: 'Sunday'
+    month_day: 'Day of the month'
+    hour: 'Hour'
+    timezone: 'Time zone'
+    formats: 'Also attach (PDF is always attached)'
+    format:
+        xlsx: 'XLSX workbook'
+        csv: 'CSV file'
+    error:
+        limit: 'You already have %limit% scheduled reports: delete one first.'
+        context: 'The selected context is not available to you: pick another one before scheduling.'
+        invalid: 'Check the schedule: a value is not allowed.'
+subscriptions:
+    title: 'Scheduled by e-mail'
+    intro: 'Reports you receive by e-mail.'
+    empty: 'You have no scheduled report yet: open a report and choose “Schedule by e-mail”.'
+    column:
+        report: 'Report'
+        parameters: 'Parameters'
+        schedule: 'Schedule'
+        next_run: 'Next run'
+        status: 'Status'
+    status:
+        enabled: 'Active'
+        paused:
+            owner: 'Paused by you'
+            operator: 'Paused by an administrator'
+            owner_inactive: 'Paused: your account is not active'
+            no_access: 'Paused: you no longer have access'
+            type_removed: 'Paused: the report no longer exists'
+            repeated_failure: 'Paused after repeated failures'
+    last:
+        sent: 'last sent'
+        skipped: 'last skipped'
+        failed: 'last failed'
+        paused: 'last run paused it'
+    pause:
+        label: 'Pause'
+        title: 'Pause this scheduled report?'
+        message: '“%report%” will not be sent until you resume it.'
+    resume:
+        label: 'Resume'
+        title: 'Resume this scheduled report?'
+        message: '“%report%” will be sent again from its next slot.'
+    delete:
+        label: 'Delete'
+        title: 'Delete this scheduled report?'
+        message: '“%report%” will no longer be sent. This cannot be undone.'
+    changed: 'This scheduled report changed meanwhile (a run or another tab updated it). Check it and try again.'
+    schedule:
+        daily: 'Every day at %hour%'
+        weekly: 'Every %weekday% at %hour%'
+        monthly: 'Every month on day %day% at %hour%'
+    parameters: 'Last %days% days'
+mail:
+    subject: 'Your report: %title%'
+    greeting: 'Hello %name%,'
+    greeting_anonymous: 'Hello,'
+    attached: 'The report is attached.'
+    too_large: 'The files are too large to attach: open the report to download them.'
+    no_files: 'Open the report to see it.'
+    open: 'Open the report'
+    manage: 'Manage your scheduled reports'

@@ -20,6 +20,8 @@ use Nowo\ReportKitBundle\Contract\ReportBrandResolverInterface;
 use Nowo\ReportKitBundle\Contract\ReportBuilderInterface;
 use Nowo\ReportKitBundle\Contract\ReportExporterInterface;
 use Nowo\ReportKitBundle\Contract\ReportFormat;
+use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
+use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
 use Nowo\ReportKitBundle\NowoReportKitBundle;
 use Nowo\ReportKitBundle\Presentation\Form\ReportFilterType;
 use Nowo\ReportKitBundle\Presentation\View\ScreenSections;
@@ -31,6 +33,7 @@ use Nowo\UiKitBundle\View\Label;
 use Nowo\UiKitBundle\View\ListPage;
 use Nowo\UiKitBundle\View\PageHeader;
 use Nowo\UiKitBundle\View\ShowPage;
+use Nowo\UiKitBundle\View\Table;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -88,6 +91,8 @@ final readonly class ReportController
         private array $templates,
         private ?string $layout = null,
         private ?EventDispatcherInterface $events = null,
+        private ?SubscriptionsInterface $subscriptions = null,
+        private ?ReportTypeRegistryInterface $types = null,
     ) {
     }
 
@@ -111,7 +116,9 @@ final readonly class ReportController
         }
 
         return $this->render($this->templates['index'], [
-            'page' => new ListPage(
+            'subscriptions' => $this->subscriptionsTable($viewer),
+            'dialog_id'     => SubscriptionController::DIALOG_ID,
+            'page'          => new ListPage(
                 new PageHeader(self::label('index.title'), self::label('index.intro')),
                 [new Column('title', self::label('index.column.title'), required: true), new Column('description', self::label('index.column.description'))],
                 $rows,
@@ -135,6 +142,14 @@ final readonly class ReportController
         $report   = $this->build($prepared);
         $query    = $this->query($prepared);
         $actions  = [];
+        if ($this->subscriptions instanceof SubscriptionsInterface && !$viewer->user instanceof GuestViewer) {
+            $href      = $this->urls->generate(SubscriptionController::ROUTE_SCHEDULE, ['type' => $type] + $query);
+            $actions[] = new Action('send', self::label('schedule.open'), $href, icon: 'mail', attributes: [
+                'data-testid'               => 'report-kit-schedule-open',
+                'data-nowo-ui-dialog-form'  => true,
+                'data-nowo-ui-dialog-title' => $this->translator->trans('schedule.title', [], self::DOMAIN),
+            ], dialogId: SubscriptionController::DIALOG_ID);
+        }
         foreach ($this->exporter->formats() as $format) {
             if ($format !== ReportFormat::Json) {
                 $actions[] = new Action('download', self::label('export.' . $format->value), $this->urls->generate(self::ROUTE_EXPORT, ['type' => $type, 'format' => $format->value] + $query), icon: 'download', attributes: ['data-testid' => 'report-kit-export-' . $format->value]);
@@ -154,6 +169,7 @@ final readonly class ReportController
             'filters_action'    => $this->urls->generate(self::ROUTE_SHOW, ['type' => $type]),
             'sections_template' => $this->templates['sections'],
             'context_fallback'  => $prepared->request->parameters->contextUnavailable,
+            'dialog_id'         => $this->subscriptions instanceof SubscriptionsInterface ? SubscriptionController::DIALOG_ID : null,
         ]);
     }
 
@@ -186,6 +202,49 @@ final readonly class ReportController
         $this->events?->dispatch(new ReportExportedEvent($viewer->owner, $type, $file, $prepared->request->parameters->context, $rows, $rendered->size), ReportKitEvents::REPORT_EXPORTED);
 
         return $response;
+    }
+
+    /**
+     * The viewer's subscriptions as a UiKit table; null when the subscriptions are off (or for the demo guest). Row
+     * actions are links to the pause / resume / delete pages, opened in the one remote dialog of the page: no form
+     * per row.
+     */
+    private function subscriptionsTable(Viewer $viewer): ?Table
+    {
+        if (!$this->subscriptions instanceof SubscriptionsInterface || $viewer->user instanceof GuestViewer) {
+            return null;
+        }
+        $rows = [];
+        foreach ($this->subscriptions->ofOwner($viewer->owner) as $view) {
+            $rows[$view->id->value] = SubscriptionRows::row($view, $this->types?->get($view->type), $this->translator);
+        }
+        $dialog = $this->translator->trans('subscriptions.title', [], self::DOMAIN);
+
+        return new Table(
+            [
+                new Column('report', self::label('subscriptions.column.report'), required: true),
+                new Column('parameters', self::label('subscriptions.column.parameters')),
+                new Column('schedule', self::label('subscriptions.column.schedule')),
+                new Column('next_run', self::label('subscriptions.column.next_run')),
+                new Column('status', self::label('subscriptions.column.status')),
+            ],
+            $rows,
+            function (mixed $row) use ($dialog): array {
+                if (!is_array($row) || !is_string($row['id'] ?? null)) {
+                    return [];
+                }
+                $enabled = ($row['enabled'] ?? false) === true;
+                $attrs   = ['data-nowo-ui-dialog-form' => true, 'data-nowo-ui-dialog-title' => $dialog];
+
+                return [
+                    new Action($enabled ? 'pause' : 'resume', self::label($enabled ? 'subscriptions.pause.label' : 'subscriptions.resume.label'), $this->urls->generate(SubscriptionController::ROUTE_TOGGLE, ['id' => $row['id']]), attributes: $attrs + ['data-testid' => 'report-kit-subscription-toggle'], dialogId: SubscriptionController::DIALOG_ID),
+                    new Action('delete', self::label('subscriptions.delete.label'), $this->urls->generate(SubscriptionController::ROUTE_DELETE, ['id' => $row['id']]), variant: 'danger', attributes: $attrs + ['data-testid' => 'report-kit-subscription-delete'], dialogId: SubscriptionController::DIALOG_ID),
+                ];
+            },
+            caption: self::label('subscriptions.title'),
+            bundle: self::DOMAIN,
+            attributes: ['data-testid' => 'report-kit-subscriptions'],
+        );
     }
 
     private static function label(string $key): Label

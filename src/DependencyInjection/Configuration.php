@@ -9,9 +9,12 @@ use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
 use function class_exists;
+use function filter_var;
 use function is_string;
 use function preg_match;
 use function str_contains;
+
+use const FILTER_VALIDATE_EMAIL;
 
 /**
  * Strict configuration tree of `nowo_report_kit` (contract 221-C §7). Every key exists from S0 so hosts can write the
@@ -109,7 +112,7 @@ final class Configuration implements ConfigurationInterface
                 ->arrayNode('subscriptions')
                     ->addDefaultsIfNotSet()
                     ->children()
-                        ->booleanNode('enabled')->defaultTrue()->end()
+                        ->append(ConfigNodes::auto('enabled', ConfigNodes::AUTO)->info('true, false or "auto" (on when DoctrineBundle is registered and owner.directory or owner.class is set); true without them refuses to build'))
                         ->integerNode('max_per_owner')->defaultValue(10)->min(1)->max(100)->end()
                         ->arrayNode('frequencies')
                             ->requiresAtLeastOneElement()
@@ -131,12 +134,35 @@ final class Configuration implements ConfigurationInterface
                         ->integerNode('stale_claim_minutes')->defaultValue(30)->min(1)->max(1440)->end()
                     ->end()
                 ->end()
+                ->arrayNode('concurrency')
+                    ->info('Write units of the subscription store (REQ-RUNTIME-003, docs/CONCURRENCY.md)')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->integerNode('attempts')->defaultValue(3)->min(1)->max(10)->info('Tries of a unit the store opened, on lock conflicts (never replayed inside a host transaction)')->end()
+                        ->integerNode('lock_timeout_ms')->defaultValue(5000)->min(0)->max(60000)->info('PostgreSQL lock_timeout of a transaction the store opens; 0 = the server default')->end()
+                    ->end()
+                ->end()
+                ->arrayNode('conflict_response')
+                    ->info('HTTP answer to a lock conflict of the bundle\'s services (REQ-RUNTIME-003 rule 6)')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->enumNode('status')->values([409, 503])->defaultValue(409)->info('409 Conflict (platform default) or 503 Service Unavailable')->end()
+                        ->integerNode('retry_after')->defaultValue(1)->min(0)->max(3600)->info('Retry-After seconds of a CONFLICT_001 answer')->end()
+                    ->end()
+                ->end()
                 ->arrayNode('mail')
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->append(ConfigNodes::auto('enabled', ConfigNodes::AUTO))
                         ->append(ConfigNodes::template('template', '@NowoReportKit/email/scheduled_report.html.twig'))
                         ->integerNode('max_attachment_bytes')->defaultValue(8388608)->min(0)->max(52428800)->end()
+                        ->append(ConfigNodes::service('mailer', 'ReportMailerInterface service; null = Symfony Mailer with mail.template'))
+                        ->scalarNode('from')->defaultNull()->info('Sender address of the default mailer; null = the mailer\'s own default headers')
+                            ->validate()
+                                ->ifTrue(static fn (mixed $value): bool => $value !== null && (!is_string($value) || filter_var($value, FILTER_VALIDATE_EMAIL) === false))
+                                ->thenInvalid('Expected null or an e-mail address, got %s.')
+                            ->end()
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('links')

@@ -42,6 +42,7 @@ show:
     context_fallback: 'Le contexte demandé ne vous est pas accessible : le rapport couvre tous les contextes auxquels vous avez accès.'
     section_empty: 'Aucune donnée pour cette période.'
     legend: 'Légende'
+    back_to_report: 'Retour au rapport'
 filter:
     title: 'Filtres'
     period: 'Période'
@@ -55,3 +56,84 @@ export:
     csv: 'Exporter en CSV'
     xlsx: 'Exporter en XLSX'
     pdf: 'Exporter en PDF'
+schedule:
+    open: 'Programmer par e-mail'
+    title: 'Programmer par e-mail'
+    intro: 'Recevez « %report% » par e-mail avec les filtres actuels. Vous seul le recevez, généré avec vos accès au moment de l’envoi.'
+    submit: 'Programmer'
+    frequency:
+        label: 'Fréquence'
+        daily: 'Chaque jour'
+        weekly: 'Chaque semaine'
+        monthly: 'Chaque mois'
+    weekday:
+        label: 'Jour de la semaine'
+        1: 'lundi'
+        2: 'mardi'
+        3: 'mercredi'
+        4: 'jeudi'
+        5: 'vendredi'
+        6: 'samedi'
+        7: 'dimanche'
+    month_day: 'Jour du mois'
+    hour: 'Heure'
+    timezone: 'Fuseau horaire'
+    formats: 'Joindre aussi (le PDF est toujours joint)'
+    format:
+        xlsx: 'Classeur XLSX'
+        csv: 'Fichier CSV'
+    error:
+        limit: 'Vous avez déjà %limit% rapports programmés : supprimez-en un d’abord.'
+        context: 'Le contexte choisi ne vous est pas accessible : choisissez-en un autre avant de programmer.'
+        invalid: 'Vérifiez la programmation : une valeur n’est pas autorisée.'
+subscriptions:
+    title: 'Programmés par e-mail'
+    intro: 'Les rapports que vous recevez par e-mail.'
+    empty: 'Vous n’avez encore aucun rapport programmé : ouvrez un rapport et choisissez « Programmer par e-mail ».'
+    column:
+        report: 'Rapport'
+        parameters: 'Paramètres'
+        schedule: 'Programmation'
+        next_run: 'Prochain envoi'
+        status: 'État'
+    status:
+        enabled: 'Actif'
+        paused:
+            owner: 'Mis en pause par vous'
+            operator: 'Mis en pause par un administrateur'
+            owner_inactive: 'En pause : votre compte n’est pas actif'
+            no_access: 'En pause : vous n’avez plus accès'
+            type_removed: 'En pause : le rapport n’existe plus'
+            repeated_failure: 'En pause après des échecs répétés'
+    last:
+        sent: 'dernier envoyé'
+        skipped: 'dernier ignoré'
+        failed: 'dernier en échec'
+        paused: 'le dernier envoi l’a mis en pause'
+    pause:
+        label: 'Mettre en pause'
+        title: 'Mettre en pause ce rapport programmé ?'
+        message: '« %report% » ne sera plus envoyé tant que vous ne l’aurez pas repris.'
+    resume:
+        label: 'Reprendre'
+        title: 'Reprendre ce rapport programmé ?'
+        message: '« %report% » sera de nouveau envoyé à partir du prochain créneau.'
+    delete:
+        label: 'Supprimer'
+        title: 'Supprimer ce rapport programmé ?'
+        message: '« %report% » ne sera plus envoyé. Action irréversible.'
+    changed: 'Ce rapport programmé a changé entre-temps (un envoi ou un autre onglet l’a modifié). Vérifiez-le et réessayez.'
+    schedule:
+        daily: 'Chaque jour à %hour%'
+        weekly: 'Chaque %weekday% à %hour%'
+        monthly: 'Chaque mois le %day% à %hour%'
+    parameters: '%days% derniers jours'
+mail:
+    subject: 'Votre rapport : %title%'
+    greeting: 'Bonjour %name%,'
+    greeting_anonymous: 'Bonjour,'
+    attached: 'Le rapport est en pièce jointe.'
+    too_large: 'Les fichiers sont trop volumineux pour être joints : ouvrez le rapport pour les télécharger.'
+    no_files: 'Ouvrez le rapport pour le consulter.'
+    open: 'Ouvrir le rapport'
+    manage: 'Gérer vos rapports programmés'
