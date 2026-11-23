@@ -8,22 +8,47 @@ in the batch before 1.0.0.
 ## Table of contents
 
 - [Slices](#slices)
+- [Road to 1.0.0](#road-to-100)
 - [Owner decisions (2026-11-12)](#owner-decisions-2026-11-12)
 - [S1 notes (contract deviations)](#s1-notes-contract-deviations)
 - [Open questions for Beacon](#open-questions-for-beacon)
 
 ## Slices
 
-| Slice | Version | Content | Audit |
-| --- | --- | --- | --- |
-| **S0** scaffold | `main`, no tag | Composer, Docker, Makefile + release-check, CI matrix (SQLite / MySQL / PostgreSQL job), PHPStan + worker rulesets, Igor, Rector, CS, coverage gate, Spec Kit baseline, docs set, `.github`, release / sync workflows, Flex recipe, demo skeleton (FrankenPHP worker, MySQL, Mailpit), strict config tree. **Then the owner registers the package on Packagist** | Batched |
-| **S1** model + renderers | 0.1.0 | `Report` / `ReportSection`, registry, parameter schema, CSV / XLSX / PDF / JSON renderers, SVG charts, `PdfDocumentRendererInterface`, brand resolver, limits | Batched |
-| **S2** pages | 0.2.0 | Scope resolver + access checker SPIs, report list and page, export routes, rate limits, demo types | Batched |
-| **S3** subscriptions + runs | 0.3.0 | Tables + mapping, subscriptions service, schedule dialog, atomic claim, run log, runner as owner, mail, auto-pause, scheduler recipe, commands, events | **Immediate** |
-| **S4** operator + GDPR | 0.4.0 | Operator page, AuditKit bridge, UserKit eraser + export, NotifyKit bridge, `forgetContext()` | Batched |
-| **S5** docs + i18n | 0.5.0 | Translations ×7, docs (USAGE, CONFIGURATION, UPGRADING, TEMPLATES, FRANKENPHP-WORKER-AUDIT, MIGRATION-FROM-BEACON), schema-check, reference DDL | Batched |
-| **S6** public API + 1.0 | 0.6.0 → **1.0.0** | `<prefix>/reports/v1` + OpenAPI (off by default), `bundle-req-audit` 100 %, SEC-004 batch audit S0–S6 | **Immediate** for the API |
-| Beacon | after 1.0.0 | Types adapter, scope / access, data copy, route prefixes; then phase 2 billing PDFs | Beacon's own |
+| Slice | Version | Content | Audit | Status (2026-11-23) |
+| --- | --- | --- | --- | --- |
+| **S0** scaffold | `main`, no tag | Composer, Docker, Makefile + release-check, CI matrix (SQLite / MySQL / PostgreSQL job), PHPStan + worker rulesets, Igor, Rector, CS, coverage gate, Spec Kit baseline, docs set, `.github`, release / sync workflows, Flex recipe, demo skeleton (FrankenPHP worker, MySQL, Mailpit), strict config tree. **Then the owner registers the package on Packagist** | Batched | Released (on `main`, packaged in v0.1.0) |
+| **S1** model + renderers | 0.1.0 | `Report` / `ReportSection`, registry, parameter schema, CSV / XLSX / PDF / JSON renderers, SVG charts, `PdfDocumentRendererInterface`, brand resolver, limits | Batched | Released (v0.1.0, 2026-11-22, audit ZE + ZG) |
+| **S2** pages | 0.2.0 | Scope resolver + access checker SPIs, report list and page, export routes, rate limits, demo types | Batched | Not started |
+| **S3** subscriptions + runs | 0.3.0 | Tables + mapping, subscriptions service, schedule dialog, atomic claim, run log, runner as owner, mail, auto-pause, scheduler recipe, commands, events | **Immediate** | Not started |
+| **S4** operator + GDPR | 0.4.0 | Operator page, AuditKit bridge, UserKit eraser + export, NotifyKit bridge, `forgetContext()` | Batched | Not started |
+| **S5** docs + i18n | 0.5.0 | Translations ×7, docs (USAGE, CONFIGURATION, UPGRADING, TEMPLATES, FRANKENPHP-WORKER-AUDIT, MIGRATION-FROM-BEACON), schema-check, reference DDL | Batched | Not started |
+| **S6** public API + 1.0 | 0.6.0 → **1.0.0** | `<prefix>/reports/v1` + OpenAPI (off by default), `bundle-req-audit` 100 %, SEC-004 batch audit S0–S6 | **Immediate** for the API | Not started |
+| Beacon | after 1.0.0 | Types adapter, scope / access, data copy, route prefixes; then phase 2 billing PDFs | Beacon's own | Waiting for 1.0.0 (renderHtml for billing PDFs is already in 0.1.0) |
+
+## Road to 1.0.0
+
+State on 2026-11-23: tag `v0.1.0` (S1 model and renderers, 2026-11-22). `main` equals the tag plus nothing runtime.
+No open pull request. S1 contract deviations 1 to 7 and the S1 decisions (PDF runner registered whenever Dompdf and
+Twig are installed, no XLSX `quotePrefix`) were accepted by the owner on 2026-11-22.
+
+What is left:
+
+- **Slices S2 to S6** (none started): pages and export routes, subscriptions and runs (owner-scoped scheduled mail),
+  operator page and GDPR, docs and i18n, public API. S3 and the S6 API need an **immediate** REQ-SEC-004 audit before
+  their tags; the other slices are audited in the batch.
+- **REQ gaps:** the last grade (2026-11-22) was done at S0 (`f5fc912`, no tag): 107 ok / 0 warn / 0 fail / 1 unknown
+  (REQ-SEC-004) / 34 n/a. The unknown is covered by the appendices below; the checklist row still says "regrade needed"
+  and a regrade at `v0.1.0` is due. Final `bundle-req-audit` at 100 % of the applicable REQs after S6.
+- **REQ-SEC-004:** appendix ZE (S0) and appendix ZG (0.1.0, S1, HOLD then GO after the re-check; Info items ZG-I2, I3, I5,
+  I9 to I11 open for later slices and docs). Nothing covers S2 to S6 yet.
+- **Open Info items to carry:** ZG-I10 (document that a caller deadline should not exceed the request budget) and ZG-I11
+  (sort share-bar slices by value) are docs notes.
+- **Owner decisions:** none open. Q-O1 to Q-O10 answered 2026-11-12; Beacon Q-B1 to Q-B5 answered as recommended.
+  Dompdf worker leak notice to Beacon is the coordinator's task, not a bundle decision.
+- **Final gate:** `bundle-req-audit` at 100 %, then the REQ-SEC-004 batch audit over S0 to S6, then `1.0.0`.
+
+Distance to 1.0.0: large (six of seven slices not started).
 
 ## Owner decisions (2026-11-12)
 
@@ -45,7 +70,7 @@ Every owner question of the contract is answered with its recommendation:
 
 ## S1 notes (contract deviations)
 
-Additive changes to the contract text, kept for review before 0.1.0:
+Additive changes to the contract text, accepted by the owner on 2026-11-22 and shipped in 0.1.0:
 
 | Item | Contract | S1 | Why |
 | --- | --- | --- | --- |
@@ -67,8 +92,7 @@ Additive changes to the contract text, kept for review before 0.1.0:
 
 ## Open questions for Beacon
 
-Still open (contract §15, "For Beacon"); the recommendation is what the bundle will assume unless Beacon answers
-otherwise.
+Answered by Beacon as recommended (Beacon D-20261111-04, 2026-11-12); kept for reference (contract §15, "For Beacon").
 
 | # | Question | Recommendation |
 | --- | --- | --- |
