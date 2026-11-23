@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle\Application\Subscription;
 
 use DateTimeImmutable;
+use Nowo\ReportKitBundle\Application\Identity\RandomIdGenerator;
 use Nowo\ReportKitBundle\Contract\Event\ReportKitEvents;
 use Nowo\ReportKitBundle\Contract\Event\ReportSubscriptionChangedEvent;
 use Nowo\ReportKitBundle\Contract\Exception\InvalidReportArgumentException;
@@ -22,12 +23,12 @@ use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Contract\SubscriptionId;
 use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
 use Nowo\ReportKitBundle\Contract\SubscriptionView;
+use Nowo\ReportKitBundle\Domain\IdGeneratorInterface;
 use Nowo\ReportKitBundle\Domain\Subscription;
 use Nowo\ReportKitBundle\Domain\SubscriptionStoreInterface;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 use function count;
@@ -56,6 +57,7 @@ final readonly class Subscriptions implements SubscriptionsInterface
         private array $frequencies = ['daily', 'weekly', 'monthly'],
         private ?EventDispatcherInterface $events = null,
         private ?LoggerInterface $logger = null,
+        private ?IdGeneratorInterface $ids = null,
     ) {
     }
 
@@ -73,7 +75,7 @@ final readonly class Subscriptions implements SubscriptionsInterface
         $stored = $this->formats($formats);
         $now    = $this->clock->now();
         $row    = new Subscription(
-            (string) Uuid::v7(),
+            $this->ids()->next(),
             $owner->type,
             $owner->id,
             $type,
@@ -280,5 +282,14 @@ final readonly class Subscriptions implements SubscriptionsInterface
     private function dispatch(object $event): void
     {
         $this->events?->dispatch($event, ReportKitEvents::SUBSCRIPTION_CHANGED);
+    }
+
+    /**
+     * The id generator (the container wires the symfony/uid UUIDv7 one; a hand-built service falls back to
+     * {@see RandomIdGenerator}).
+     */
+    private function ids(): IdGeneratorInterface
+    {
+        return $this->ids ?? new RandomIdGenerator();
     }
 }

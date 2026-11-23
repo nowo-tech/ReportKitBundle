@@ -8,7 +8,9 @@ use Nowo\ReportKitBundle\Contract\OwnerDirectoryInterface;
 use Nowo\ReportKitBundle\Contract\ReportMailerInterface;
 use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
 use Nowo\ReportKitBundle\DependencyInjection\NowoReportKitExtension;
+use Nowo\ReportKitBundle\Domain\IdGeneratorInterface;
 use Nowo\ReportKitBundle\Infrastructure\Collation\ReportKitExactKeyColumns;
+use Nowo\ReportKitBundle\Infrastructure\Identity\UuidV7IdGenerator;
 use Nowo\ReportKitBundle\Infrastructure\Mail\DisabledReportMailer;
 use Nowo\ReportKitBundle\Infrastructure\Mail\SymfonyReportMailer;
 use Nowo\ReportKitBundle\Infrastructure\Messenger\RunScheduledReportHandler;
@@ -43,6 +45,8 @@ final class SubscriptionsWiringTest extends TestCase
         self::assertTrue($container->getParameter('nowo_report_kit.subscriptions'));
         self::assertTrue($container->hasAlias(SubscriptionsInterface::class));
         self::assertTrue($container->getAlias(SubscriptionsInterface::class)->isPublic());
+        self::assertSame('nowo_report_kit.id_generator', (string) $container->getAlias(IdGeneratorInterface::class), 'ids and run tokens come from the symfony/uid adapter (REQ-ARCH-002 port)');
+        self::assertSame(UuidV7IdGenerator::class, $container->getDefinition('nowo_report_kit.id_generator')->getClass());
         self::assertSame(DoctrineOwnerDirectory::class, $container->getDefinition('nowo_report_kit.owner_directory')->getClass());
         self::assertSame(SymfonyReportMailer::class, $container->getDefinition('nowo_report_kit.mailer')->getClass());
         self::assertTrue($container->hasDefinition(RunScheduledReportHandler::class));

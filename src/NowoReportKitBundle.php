@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ReportKitBundle;
 
+use Nowo\ReportKitBundle\Contract\TranslationDomain;
 use Nowo\ReportKitBundle\DependencyInjection\Compiler\RenderingRequirementsPass;
 use Nowo\ReportKitBundle\DependencyInjection\Compiler\WebUiRequirementsPass;
 use Nowo\ReportKitBundle\DependencyInjection\NowoReportKitExtension;
@@ -24,7 +25,7 @@ use Symfony\Component\HttpKernel\Bundle\Bundle;
 final class NowoReportKitBundle extends Bundle
 {
     /** Translation domain of the bundle UI copy (REQ-I18N-003) and Twig namespace (REQ-TWIG-002). */
-    public const TRANSLATION_DOMAIN = 'NowoReportKitBundle';
+    public const TRANSLATION_DOMAIN = TranslationDomain::NAME;
 
     /**
      * Registers the compiler passes that check the rendering and the report pages requirements.

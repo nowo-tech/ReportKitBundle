@@ -22,7 +22,7 @@ use Nowo\ReportKitBundle\Contract\ReportExporterInterface;
 use Nowo\ReportKitBundle\Contract\ReportFormat;
 use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
 use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
-use Nowo\ReportKitBundle\NowoReportKitBundle;
+use Nowo\ReportKitBundle\Contract\TranslationDomain;
 use Nowo\ReportKitBundle\Presentation\Form\ReportFilterType;
 use Nowo\ReportKitBundle\Presentation\View\ScreenSections;
 use Nowo\UiKitBundle\View\Action;
@@ -70,7 +70,7 @@ final readonly class ReportController
     public const ROUTE_EXPORT = 'nowo_report_kit_export';
 
     /** Bundle domain. */
-    private const DOMAIN = NowoReportKitBundle::TRANSLATION_DOMAIN;
+    private const DOMAIN = TranslationDomain::NAME;
 
     /**
      * @param array{index: string, show: string, sections: string} $templates page templates (`web_ui.templates.*` or the bundle's)

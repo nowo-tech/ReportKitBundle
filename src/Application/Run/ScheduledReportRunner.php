@@ -8,6 +8,7 @@ use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
 use LogicException;
+use Nowo\ReportKitBundle\Application\Identity\RandomIdGenerator;
 use Nowo\ReportKitBundle\Application\Subscription\SubscriptionMapper;
 use Nowo\ReportKitBundle\Contract\ContextRef;
 use Nowo\ReportKitBundle\Contract\Event\ReportKitEvents;
@@ -35,6 +36,7 @@ use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
 use Nowo\ReportKitBundle\Contract\RunStatus;
 use Nowo\ReportKitBundle\Contract\ScheduledReportMail;
 use Nowo\ReportKitBundle\Contract\SubscriptionId;
+use Nowo\ReportKitBundle\Domain\IdGeneratorInterface;
 use Nowo\ReportKitBundle\Domain\ReportRun;
 use Nowo\ReportKitBundle\Domain\Subscription;
 use Nowo\ReportKitBundle\Domain\SubscriptionStoreInterface;
@@ -42,7 +44,6 @@ use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Translation\LocaleSwitcher;
-use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Throwable;
 
@@ -112,6 +113,7 @@ final readonly class ScheduledReportRunner
         private ?LocaleSwitcher $localeSwitcher = null,
         private ?EventDispatcherInterface $events = null,
         private ?LoggerInterface $logger = null,
+        private ?IdGeneratorInterface $ids = null,
     ) {
     }
 
@@ -145,8 +147,8 @@ final readonly class ScheduledReportRunner
         $now     = $this->clock->now();
         $stale   = $now->modify('-' . $this->staleMinutes . ' minutes');
         // Every attempt has its own lease token: only the attempt that holds the slot may move or close its run row.
-        $lease = (string) Uuid::v7();
-        $taken = $this->store->transactional(fn (): bool => $this->store->insertRun(new ReportRun((string) Uuid::v7(), $row->id, $row->ownerType, $row->ownerId, $slot, ReportRun::RUNNING, [], 0, 0, null, 1, $now, $now, $lease))
+        $lease = $this->ids()->next();
+        $taken = $this->store->transactional(fn (): bool => $this->store->insertRun(new ReportRun($this->ids()->next(), $row->id, $row->ownerType, $row->ownerId, $slot, ReportRun::RUNNING, [], 0, 0, null, 1, $now, $now, $lease))
             || $this->store->takeRun($row->id, $slot, $now, $stale, $lease));
         if (!$taken) {
             $logger->info('nowo_report_kit: slot {slot} of subscription {id} is already handled; nothing sent.', ['id' => $row->id, 'slot' => $message->slotAt]);
@@ -510,5 +512,14 @@ final readonly class ScheduledReportRunner
     private function ms(int $started): int
     {
         return intdiv(hrtime(true) - $started, 1_000_000);
+    }
+
+    /**
+     * The id generator (the container wires the symfony/uid UUIDv7 one; a hand-built service falls back to
+     * {@see RandomIdGenerator}).
+     */
+    private function ids(): IdGeneratorInterface
+    {
+        return $this->ids ?? new RandomIdGenerator();
     }
 }

@@ -25,7 +25,7 @@ use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Contract\SubscriptionId;
 use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
 use Nowo\ReportKitBundle\Contract\SubscriptionView;
-use Nowo\ReportKitBundle\NowoReportKitBundle;
+use Nowo\ReportKitBundle\Contract\TranslationDomain;
 use Nowo\ReportKitBundle\Presentation\Form\ScheduleType;
 use Nowo\UiKitBundle\Dialog\RemoteDialog;
 use Nowo\UiKitBundle\Dialog\RemoteDialogResponder;
@@ -78,7 +78,7 @@ final readonly class SubscriptionController
     /** Id of the one remote dialog shell of the list and report pages. */
     public const DIALOG_ID = 'report-kit-dialog';
 
-    private const DOMAIN = NowoReportKitBundle::TRANSLATION_DOMAIN;
+    private const DOMAIN = TranslationDomain::NAME;
 
     /**
      * @param array{page: string, fragment: string} $templates `web_ui.templates.schedule_dialog` (fragment) and the page

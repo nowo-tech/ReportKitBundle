@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Nowo\ReportKitBundle\Infrastructure\Rendering;
+namespace Nowo\ReportKitBundle\Application\Rendering;
 
 use Nowo\ReportKitBundle\Application\Chart\ReportChartSvg;
 use Nowo\ReportKitBundle\Contract\ReportSection;
