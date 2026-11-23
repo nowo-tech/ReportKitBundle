@@ -10,8 +10,43 @@
 
 ## Status
 
-S2 (pages, target 0.2.0): the report pages and export routes exist when `web_ui.enabled` is true (off by default); still
-**no table**. The rendering safety below ships since S1; the page access below since S2.
+S3 (subscriptions, target 0.3.0, **immediate REQ-SEC-004 audit**): three bundle tables, scheduled runs built as the
+owner, mail to the owner only, the schedule dialog and the subscription pages. The rendering safety below ships since
+S1, the page access since S2, the scheduled path since S3.
+
+### Scheduled runs and subscriptions (S3)
+
+- **Built as the owner, at run time** (contract §6.1). A run never stores or reuses an access decision, a token or an
+  operator's rights. Every attempt reads the directory again (active user, current address; the user's owner reference
+  must equal the subscription's exactly, REQ-SEC-006 rule 4), then builds through the same `ReportBuilderInterface` as
+  the pages: scope resolver, access checker and `ReportAccessCheckEvent` (`$scheduled = true`) decide again.
+  **Zero contexts fail closed like ZY-M1**: a person a real scope resolver gives no context is refused a context type
+  unless `allowsWithoutContext()` or an explicit `grant()` opens it. A subscribed context that is no longer accessible
+  **pauses** the subscription (`no_access`); a run never falls back to "all accessible" (the page does, and says so).
+  Removed type → `type_removed`; inactive / missing / mismatched owner or no valid address → `owner_inactive`.
+- **Mail to the owner only** (§6.3, Q-O2): the directory's address at run time, never a stored one; one recipient, no
+  Cc / Bcc; the owner's locale through `LocaleSwitcher::runWithLocale()` (restored on failure); links built from
+  `links.base_url` / the router's `default_uri` on a fresh generator, never from a request Host (REQ-AUTH-011);
+  attachments over `mail.max_attachment_bytes` are dropped and the mail carries the link, which needs a sign-in; the
+  mail body carries the title, filters line, summary and glance only. The template escapes every value.
+- **No double mail.** The run row `(subscription_id, slot_at)` is unique; the row goes to `sending` before the mailer is
+  called and a `sending` row is never taken again (at most once per slot). An unready mailer skips and keeps the
+  schedule (Q-O9).
+- **Subscriptions are the owner's only.** Lookups by id **and** owner, re-checked with `===` in PHP after SQL (another
+  owner's id, `UserA` vs `usera`, `alice ` → 404); CSRF on every POST (FormKit; token id per subscription and action,
+  a missing or wrong token answers 403); the version the page showed is posted back (409 when the row changed);
+  `subscriptions.max_per_owner` under a per-owner lock row. The demo guest (`allow_unauthenticated`) cannot own
+  subscriptions (403). The schedule form re-resolves and re-checks the report parameters; a context the person cannot
+  read is a form error, never stored as "all accessible".
+- **Identifier columns (REQ-SEC-006).** `id`, `owner_type`, `owner_id`, `report_type`, `subscription_id`,
+  `claim_token` and the lock keys get a binary NO PAD collation on MySQL (`utf8mb4_0900_bin`) / MariaDB
+  (`utf8mb4_nopad_bin`), `utf8mb4_bin` only as the MySQL 5.7 / partial `server_version` fallback (logged); declared to
+  MigrationsKit through `ExactKeyColumnsInterface` (tag `nowo_migrations_kit.exact_key_columns`). Value objects refuse
+  ids with edge white space, control or invisible characters; subscription ids are lower-case UUIDs (`/D`-anchored).
+- **Logs** carry ids, slots, codes and exception classes only (never an address, parameter value or report content);
+  events carry ids, never content or addresses.
+- **Remote dialog.** The `X-Nowo-Dialog` header only selects the fragment template and the 204 answer: guard, rate
+  limit, CSRF and owner checks run for both modes; both modes vary on the header and are `no-store, private`.
 
 ### Report pages access (S2)
 
@@ -93,7 +128,9 @@ From contract §6. Each threat names the control that answers it and the slice t
 | Resource exhaustion | Row, cell, render-time and HTML-size limits; export and view rate limits in the cache pool; at most 5,000 scope contexts per build | S1, S2 |
 | Report pages open to anyone | Firewall rule + bundle guard (roles or host checker); no build without SecurityBundle unless the demo-only `allow_unauthenticated` | S2 |
 | Report content on the operator page | Operator sees owner, type, schedule and status only; never report content | S4 |
-| Collation (audit LQ) | Owner ids in `utf8mb4_bin`, PHP `===` re-check on subscriptions, export and erasure | S3 |
+| Collation (audit LQ, REQ-SEC-006) | Identifier columns binary NO PAD, PHP `===` re-check on every owner- and id-keyed read; export and erasure in S4 | S3 |
+| Double or replayed mail | Unique run row per slot, `sending` mark before the hand-over, atomic claim, idempotent handlers | S3 |
+| A mail sent before the data is committed | Runner refuses to run inside a transaction; events after commit | S3 |
 | Worker-mode bleed | No report, owner or scope memo across requests; temp files per call; N-request test | S1–S3 |
 
 ## Audits
@@ -117,7 +154,7 @@ Run before every tag (`docs/RELEASE.md`); each slice updates the status column.
 | Cryptography | — (none) |
 | Permissions / exposure | — (no route in S1; scope resolver and access checker from S2) |
 | Limits / DoS | ✅ (row, cell, render-time and HTML-size limits; rate limits from S2) |
-| REQ-SEC-004 AI audit recorded | Pending (before the first tag, see [Audits](#audits)) |
+| REQ-SEC-004 AI audit recorded | S1 (ZE, ZG), S2 (ZY); S3 pending: immediate audit before 0.3.0 |
 
 ## Reporting
 

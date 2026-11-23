@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle\Tests\Unit\Subscription;
 
 use DateTimeImmutable;
+use Nowo\ReportKitBundle\Application\Subscription\Subscriptions;
 use Nowo\ReportKitBundle\Contract\ContextRef;
 use Nowo\ReportKitBundle\Contract\Event\ReportSubscriptionChangedEvent;
 use Nowo\ReportKitBundle\Contract\Exception\InvalidReportArgumentException;
@@ -18,8 +19,12 @@ use Nowo\ReportKitBundle\Contract\ReportParameters;
 use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Contract\SubscriptionId;
 
+use function array_slice;
+
+use const DATE_ATOM;
+
 /**
- * {@see \Nowo\ReportKitBundle\Application\Subscription\Subscriptions}: create (cap, formats, first slot), owner-scoped
+ * {@see Subscriptions}: create (cap, formats, first slot), owner-scoped
  * lookups with exact keys, pause / resume / delete with the optimistic version, events after commit.
  */
 final class SubscriptionsTest extends SubscriptionTestCase
@@ -111,9 +116,9 @@ final class SubscriptionsTest extends SubscriptionTestCase
 
     public function testPauseAndResumeWithTheVersion(): void
     {
-        $view          = $this->subscribe();
-        $subscriptions = $this->subscriptions();
-        $this->recorded = [];
+        $view           = $this->subscribe();
+        $subscriptions  = $this->subscriptions();
+        $this->recorded = array_slice($this->recorded, 1);
 
         self::assertTrue($subscriptions->setEnabled(self::owner(), $view->id, false, 1));
         $paused = $subscriptions->get(self::owner(), $view->id);
@@ -126,7 +131,7 @@ final class SubscriptionsTest extends SubscriptionTestCase
             $subscriptions->setEnabled(self::owner(), $view->id, true, 1);
             self::fail('stale version accepted');
         } catch (SubscriptionChangedException $changed) {
-            self::assertSame(SubscriptionChangedException::CODE, $changed::CODE);
+            self::assertStringContainsString('changed meanwhile', $changed->getMessage());
         }
 
         // Resume much later: the next slot is the first one after now, not the stale one.
@@ -188,7 +193,7 @@ final class SubscriptionsTest extends SubscriptionTestCase
 
     public function testContextsAndExtrasRoundTrip(): void
     {
-        $view = $this->subscriptions()->create(self::owner(), 'revenue', new ReportParameters(7, new ContextRef('project', 'a1'), ['channel' => 'shop', 'limit' => 5, 'gross' => false, 'since' => null]), new Schedule(Frequency::Monthly, 1, 28, 23, 'UTC'), []);
+        $view  = $this->subscriptions()->create(self::owner(), 'revenue', new ReportParameters(7, new ContextRef('project', 'a1'), ['channel' => 'shop', 'limit' => 5, 'gross' => false, 'since' => null]), new Schedule(Frequency::Monthly, 1, 28, 23, 'UTC'), []);
         $again = $this->subscriptions()->get(self::owner(), $view->id);
         self::assertNotNull($again);
         self::assertEquals($view->parameters, $again->parameters);

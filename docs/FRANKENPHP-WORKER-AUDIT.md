@@ -32,8 +32,10 @@ resetter between requests.
 | Memory growth | ✅ | < 1 MiB over 2,000 requests; < 4 MiB over 500 exports (Dompdf, OpenSpout) |
 | Static properties / `static` locals | ✅ | None (the bundle's extension instance is the Symfony boot-time cache, `@igor-ignore` with justification) |
 | Superglobals, `putenv`, `ini_set`, `setlocale`, timezone | ✅ | None set by the bundle. Dompdf sets `LC_NUMERIC`, `pcre.jit` and the mbstring encoding during a render and restores them only when it ends normally; the runner and the font warmer take a snapshot before Dompdf and restore it in `finally` (`DompdfPhpState`, audit ZG-L2, tested with a render stopped by the deadline). Dompdf's **global `$_dompdf_warnings` list**, which it never empties, is emptied after every render (`DompdfWarnings::clear()`); its **static image cache** (`Image\Cache`) is cleared in `finally` even when a render fails |
-| Translator locale | ✅ | Never changed: every text is translated with the report's locale passed explicitly; `WorkerExportLoopTest` asserts the default locale after each export |
-| Doctrine | n/a | No table in S0; later slices write through DBAL in their own transactions and never keep managed entities |
+| Translator locale | ✅ | Pages and exports never change it (texts are translated with the report's locale explicitly). A scheduled run (S3) switches to the owner's locale only inside `LocaleSwitcher::runWithLocale()`, restored even when the run fails; `WorkerScheduledRunsLoopTest` asserts `en` after each of 200 runs |
+| Doctrine (S3) | ✅ | DBAL only, on the connection of `doctrine.entity_manager`, resolved per call (a connection the registry replaced is picked up; a lost connection is retried once outside a transaction); every write unit opens and closes its transaction in the call; no managed entity, no flush, clear or reset of any EntityManager. The default owner directory reads the host's user through the host's manager (read only; Messenger's `doctrine_clear_entity_manager` clears it per message) |
+| After-commit queue (S3) | ✅ | `AfterCommitQueue` holds the events of a unit that joined a host transaction until the host's commit (weak map keyed by the native connection); it is emptied at every boundary (`kernel.finish_request` main request, `kernel.terminate`, `console.terminate`, Messenger `WorkerMessageHandled` / `WorkerMessageFailed`) and on `kernel.reset`, and logs what it drops: nothing survives into the next request even without the services resetter |
+| Claims and leases (S3) | ✅ | In the database (claim token, run lease), never in process memory; a crashed worker's claim and lease expire after `schedule.stale_claim_minutes` |
 | Resources held open | ✅ | One Dompdf / OpenSpout instance per call; the private directory (chroot, temp dir, OpenSpout temp folder) is removed in `finally`; `WorkerExportLoopTest` asserts the temp root is empty after each export. The rendered file is a `php://temp` stream that PHP frees with the `RenderedFile` |
 
 ### Dompdf function-static caches (audit ZG-L3)
@@ -61,10 +63,22 @@ and run Messenger consumers (S3) with `--limit` / `--memory-limit`.
 | `Presentation\Http\ReportController`, `ReportKitGuard`, `ReportRateLimiter`, `Presentation\View\ScreenSections`, `Presentation\Form\ReportFilterType`, `Presentation\Routing\ReportRouteLoader` (S2) | None; the token is read per call, rate-limit counters live in the cache pool | ✅ |
 | `Infrastructure\Security\{Configurable,AllowAll}ReportKitAccessChecker`, `Infrastructure\Cache\PermissionCheckerWarmer` (S2) | Configuration only / warmup only | ✅ |
 | `Contract\Event\ReportAccessCheckEvent` (S2) | Mutable decision, one instance per build, never a service | ✅ |
+| `Application\Subscription\Subscriptions`, `Run\{DueReportsDispatcher,ScheduledReportRunner,RunRetention}` (S3) | Injected services and configuration only; owner, access, directory and settings read per call | ✅ |
+| `Infrastructure\Persistence\DbalSubscriptionStore`, `AfterCommitMiddleware`, `AfterCommitConnection` (S3) | No state; connection per call | ✅ |
+| `Infrastructure\Persistence\AfterCommitQueue`, `AfterCommitQueueResetListener` (S3) | Held after-commit work (weak map), request state | ✅ emptied at every boundary and on `kernel.reset` |
+| `Infrastructure\Doctrine\ReportKitMetadataListener`, `Collation\ReportKitExactKeyColumns` (S3) | Prefix only; mapping time | ✅ |
+| `Infrastructure\Mail\{SymfonyReportMailer,DisabledReportMailer}`, `Owner\DoctrineOwnerDirectory`, `Presentation\Routing\RouterReportLinks` (S3) | Configuration only; the link generator is built per call (the shared request context is never read or changed) | ✅ |
+| `Infrastructure\Messenger\*Handler`, `Console\{DispatchDue,PruneRuns}Command`, `Scheduler\ReportKitScheduleProvider` (S3) | None; the schedule object is built per call | ✅ |
+| `Presentation\Http\SubscriptionController`, `SubscriptionRows`, `Presentation\Form\ScheduleType` (S3) | None; forms per request | ✅ |
 
 `tests/Integration/Web/WorkerPagesLoopTest.php` (S2): one kernel kept alive, 300 alternating list / page / CSV
 requests by two viewers in two locales; every answer holds only the viewer's own contexts and memory stays under
 4 MiB of growth.
+
+`tests/Integration/Worker/WorkerScheduledRunsLoopTest.php` (S3, contract §11): one kernel kept alive, no services
+resetter, 200 scheduled runs through the Messenger handler with real PDF / XLSX / CSV renders for an owner in German and
+an exception every 10th run (the mailer throws: recorded, rethrown for a retry). After every run the private temp
+directory is empty and the translator is back on `en`; 180 mails, 20 failures; memory drift under 8 MiB.
 
 ## Rules for the next slices
 

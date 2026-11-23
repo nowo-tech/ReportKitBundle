@@ -45,5 +45,7 @@ fi
 
 php /app/bin/console assets:install public --no-interaction >/dev/null 2>&1 || true
 php /app/bin/console doctrine:database:create --if-not-exists --no-interaction 2>/dev/null || true
+# S3: the bundle tables (the demo has no migrations of its own).
+php /app/bin/console doctrine:schema:update --force --no-interaction 2>/dev/null || true
 
 exec frankenphp run --config /etc/frankenphp/Caddyfile --adapter caddyfile

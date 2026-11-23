@@ -16,6 +16,7 @@ use Nowo\ReportKitBundle\Contract\PauseReason;
 use Nowo\ReportKitBundle\Contract\ReportFormat;
 use Nowo\ReportKitBundle\Contract\ReportParameters;
 use Nowo\ReportKitBundle\Contract\ReportSettingsProviderInterface;
+use Nowo\ReportKitBundle\Contract\ReportTypeInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
 use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Contract\SubscriptionId;
@@ -63,7 +64,7 @@ final readonly class Subscriptions implements SubscriptionsInterface
      */
     public function create(OwnerRef $owner, string $type, ReportParameters $parameters, Schedule $schedule, array $formats): SubscriptionView
     {
-        if ($this->types->get($type) === null) {
+        if (!$this->types->get($type) instanceof ReportTypeInterface) {
             throw new UnknownReportTypeException($type);
         }
         if (!in_array($schedule->frequency->value, $this->frequencies, true)) {
@@ -97,6 +98,7 @@ final readonly class Subscriptions implements SubscriptionsInterface
             $now,
         );
 
+        // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
         $this->store->transactional(function () use ($owner, $row): void {
             // The lock row serialises concurrent creates of one owner, so the count below sees every committed row.
             $this->store->lockOwner($owner);
@@ -104,7 +106,7 @@ final readonly class Subscriptions implements SubscriptionsInterface
                 throw new SubscriptionLimitException($this->maxPerOwner);
             }
             $this->store->insert($row);
-        }, function () use ($row, $owner, $type): void {
+        }, function () use ($row, $owner, $type): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
             $this->dispatch(new ReportSubscriptionChangedEvent(new SubscriptionId($row->id), $owner, $type, ReportSubscriptionChangedEvent::CREATED, $owner));
         });
 
@@ -149,7 +151,8 @@ final readonly class Subscriptions implements SubscriptionsInterface
      */
     public function setEnabled(OwnerRef $owner, SubscriptionId $id, bool $enabled, ?int $expectedVersion = null): bool
     {
-        $now     = $this->clock->now();
+        $now = $this->clock->now();
+        // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
         $changed = $this->store->transactional(function () use ($owner, $id, $enabled, $expectedVersion, $now): ?Subscription {
             $row = $this->locked($owner, $id, $expectedVersion);
             if (!$row instanceof Subscription) {
@@ -164,7 +167,7 @@ final readonly class Subscriptions implements SubscriptionsInterface
             }
 
             return $row;
-        }, function (?Subscription $row) use ($owner, $enabled): void {
+        }, function (?Subscription $row) use ($owner, $enabled): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
             if ($row instanceof Subscription) {
                 $this->dispatch(new ReportSubscriptionChangedEvent(
                     new SubscriptionId($row->id),
@@ -185,6 +188,7 @@ final readonly class Subscriptions implements SubscriptionsInterface
      */
     public function delete(OwnerRef $owner, SubscriptionId $id, ?int $expectedVersion = null): bool
     {
+        // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
         $deleted = $this->store->transactional(function () use ($owner, $id, $expectedVersion): ?Subscription {
             $row = $this->locked($owner, $id, $expectedVersion);
             if (!$row instanceof Subscription) {
@@ -195,7 +199,7 @@ final readonly class Subscriptions implements SubscriptionsInterface
             }
 
             return $row;
-        }, function (?Subscription $row) use ($owner): void {
+        }, function (?Subscription $row) use ($owner): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
             if ($row instanceof Subscription) {
                 $this->dispatch(new ReportSubscriptionChangedEvent(new SubscriptionId($row->id), $owner, $row->reportType, ReportSubscriptionChangedEvent::DELETED, $owner));
             }

@@ -115,12 +115,16 @@ abstract class SubscriptionTestCase extends TestCase
 
     /**
      * @param list<ReportTypeInterface>|null $types
+     * @param list<string> $disabled
      */
     protected function registry(?array $types = null, array $disabled = []): ReportTypeRegistry
     {
         return new ReportTypeRegistry($types ?? [new OrdersReportType($this->translator), new RevenueReportType($this->translator), new PersonalReportType($this->translator)], [], $disabled);
     }
 
+    /**
+     * @param list<string> $frequencies
+     */
     protected function subscriptions(int $max = 10, array $frequencies = ['daily', 'weekly', 'monthly'], ?ReportTypeRegistry $registry = null): Subscriptions
     {
         return new Subscriptions($this->store, $registry ?? $this->registry(), $this->settings(), $this->clock, $max, $frequencies, $this->events);

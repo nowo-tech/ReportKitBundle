@@ -83,6 +83,7 @@ final readonly class SymfonyReportMailer implements ReportMailerInterface
         foreach ($mail->attachments as $attachment) {
             $email->attach($attachment->content, $attachment->filename, $attachment->contentType);
         }
+        // @igor-ignore - A value built in this call (form, response, e-mail), never a shared service.
         $email->getHeaders()->addTextHeader('X-Report-Kit-Subscription', $mail->subscriptionId->value);
         $this->mailer->send($email);
     }

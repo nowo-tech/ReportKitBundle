@@ -54,7 +54,7 @@ final class SubscriptionRows
         return [
             'id'         => $view->id->value,
             'enabled'    => $view->enabled,
-            'report'     => $type === null ? $view->type : $translator->trans($type->labelKey(), [], $type->translationDomain() ?? 'messages'),
+            'report'     => $type instanceof ReportTypeInterface ? $translator->trans($type->labelKey(), [], $type->translationDomain() ?? 'messages') : $view->type,
             'parameters' => $line,
             'schedule'   => $when . ' (' . $schedule->timezone . ')',
             'next_run'   => $view->enabled ? $view->nextRunAt->setTimezone(new DateTimeZone($schedule->timezone))->format('Y-m-d H:i') : '—',

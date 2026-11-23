@@ -7,6 +7,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **S3 subscriptions and scheduled runs** (contract 221-C §4.1–4.3, §5, §6.1, §6.3–6.5, §9, §11; target 0.3.0):
+  - Value objects and ports: `SubscriptionId`, `Frequency`, `Schedule` (daily / weekly / monthly 1–28, hour, IANA time
+    zone; `next()` computes slots in local time and returns UTC: a skipped local hour runs after the gap, a repeated
+    one runs once), `PauseReason`, `RunStatus`, `SubscriptionView`, `SubscriptionsInterface` (`create()`, `ofOwner()`,
+    `get()`, `setEnabled()`, `delete()`), `OwnerDirectoryInterface`, `ReportMailerInterface`, `ScheduledReportMail`,
+    `MailAttachment`, the messages `DispatchDueReportsMessage`, `RunScheduledReportMessage`, `PruneReportRunsMessage`,
+    the events `ReportSubscriptionChangedEvent`, `ScheduledReportSentEvent`, `ScheduledReportPausedEvent`,
+    `ScheduledReportFailedEvent`, the exceptions `SubscriptionLimitException`, `SubscriptionChangedException`,
+    `ReportKitConflictException`.
+  - Tables `<prefix>report_subscription`, `<prefix>report_run` (unique `(subscription_id, slot_at)`) and
+    `<prefix>report_owner_lock`: plain domain classes with XML mapping (default) and attribute twins
+    (`doctrine.mapping: attribute`), prepended on `doctrine.entity_manager`; written through DBAL only.
+  - Scheduled runs **as the owner at run time**: the directory, the type, the scope resolver, the access checker and
+    `ReportAccessCheckEvent` are asked again on every attempt; owner inactive / lost access / lost context / type removed
+    pause with the reason; an unready mailer skips and keeps the schedule (Q-O9); `schedule.max_failures` failures in a
+    row pause with `repeated_failure`. PDF always attached when enabled (Q-O7), XLSX / CSV on request, files over
+    `mail.max_attachment_bytes` replaced by the link.
+  - Atomic claim (`DueReportsDispatcher`), idempotent run per slot with a lease and a `sending` mark before the
+    hand-over (never two mails per slot), run log, retention (`retention.run_days`).
+  - Messenger handlers (`#[AsMessageHandler]`) for the three messages, the Symfony Scheduler schedule
+    `nowo_report_kit` (`schedule.enabled` + `symfony/scheduler`), the commands `nowo:report-kit:dispatch-due` (`--sync`)
+    and `nowo:report-kit:prune`.
+  - Default owner directory over the Doctrine user class (`owner.class`; `getEmail()`, `getLocale()`, `getTimezone()`,
+    `isEnabled()` / `isActive()`, `getDisplayName()`), default mailer on Symfony Mailer with the templates
+    `@NowoReportKit/email/scheduled_report.{html,txt}.twig` (owner's locale, absolute links from `links.base_url` /
+    `default_uri`), MailKit readiness bridge.
+  - Pages: *Schedule by e-mail* on the report page and a *Scheduled by e-mail* table on the list, with pause / resume /
+    delete; each opens one lazy UiKit remote dialog (fragment on `X-Nowo-Dialog`, 422 in place, 204 +
+    `X-Nowo-Redirect`), full pages without JavaScript; FormKit CSRF forms (403 on a bad token), the version the page
+    showed posted back (409 `SUBSCRIPTION_CHANGED`). Templates `@NowoReportKit/web/{form,_dialog_form}.html.twig`.
+  - REQ-RUNTIME-003: one transaction per unit through transaction-doctrine (replay, PostgreSQL `lock_timeout`), the
+    per-owner lock row for `max_per_owner`, row locks and optimistic versions, `ReportKitConflictListener` (409 / 503 +
+    `X-Conflict-Code: CONFLICT_001|CONFLICT_002`), events after the commit of a host transaction
+    (`AfterCommitMiddleware`), two-connection race tests on SQLite, MySQL 8.4, MariaDB 11.4 and PostgreSQL 16
+    ([CONCURRENCY.md](CONCURRENCY.md)).
+  - REQ-SEC-006: binary NO PAD collation of the identifier columns (`utf8mb4_0900_bin` / `utf8mb4_nopad_bin`), `===`
+    re-checks of every owner- and id-keyed read, `ReportKitExactKeyColumns` (tag `nowo_migrations_kit.exact_key_columns`).
+  - Configuration: `mail.mailer`, `mail.from`, `concurrency.*`, `conflict_response.*`; container parameter
+    `nowo_report_kit.subscriptions`. Translations in the seven locales.
+  - Demo: Doctrine on MySQL, a people directory, the schedule dialog, a "run the due reports now" demo button and the
+    Mailpit check in the Playwright e2e.
+
+### Changed
+
+- `subscriptions.enabled` accepts `true | false | "auto"` and defaults to `auto` (on with DoctrineBundle and an owner
+  directory); `true` without them refuses to build.
+- New required packages: `doctrine/dbal`, `doctrine/orm` (mapping only), `doctrine/persistence`,
+  `nowo-tech/transaction-contract`, `nowo-tech/transaction-doctrine`, `nowo-tech/migrations-kit-contracts`, `psr/log`,
+  `symfony/console`, `symfony/uid`.
+
+### Security
+
+- Scheduled runs never reuse an access decision: zero contexts on a real scope resolver fail closed at run time as on
+  the pages (audit ZY-M1), a subscribed context that is no longer accessible pauses instead of widening, the mail goes
+  only to the directory's current address of exactly that owner, and the runner refuses to run inside a transaction
+  (the mail would leave before the commit). Immediate REQ-SEC-004 audit due before 0.3.0.
+
 ## [0.2.0] - 2026-11-23
 
 ### Added

@@ -22,7 +22,9 @@ services:
       - APP_DEBUG=1
       - FRANKENPHP_MODE=${FRANKENPHP_MODE:-worker}
       # Demo database: passwordless root on the private Compose network (no credential in the repository).
-      - DATABASE_URL=${DATABASE_URL:-mysql://root@db:3306/nowo_report_kit_demo?serverVersion=8.0&charset=utf8mb4}
+      - DATABASE_URL=${DATABASE_URL:-mysql://root@db:3306/nowo_report_kit_demo?serverVersion=8.0.40&charset=utf8mb4}
+      - MAILER_DSN=${MAILER_DSN:-smtp://mailpit:1025}
+      - DEFAULT_URI=${DEFAULT_URI:-http://localhost:8223}
     # Mitigate Docker/WSL DNS failures resolving repo.packagist.org (composer curl error 6).
     dns:
       - 8.8.8.8
@@ -30,6 +32,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     networks:
       - report-kit-demo-network
 

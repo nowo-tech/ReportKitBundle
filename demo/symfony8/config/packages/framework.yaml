@@ -8,6 +8,9 @@ framework:
     default_path: '%kernel.project_dir%/translations'
     fallbacks: ['en']
   assets: ~
+  # S3: scheduled report mails go to Mailpit (demo only, no credential).
+  mailer:
+    dsn: '%env(MAILER_DSN)%'
   php_errors:
     log: true
 

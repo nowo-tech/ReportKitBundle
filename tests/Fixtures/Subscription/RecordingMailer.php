@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ReportKitBundle\Tests\Fixtures\Subscription;
 
+use Closure;
 use Nowo\ReportKitBundle\Contract\ReportMailerInterface;
 use Nowo\ReportKitBundle\Contract\ScheduledReportMail;
 use RuntimeException;
@@ -21,8 +22,8 @@ final class RecordingMailer implements ReportMailerInterface
 
     public int $failures = 0;
 
-    /** @var (\Closure(ScheduledReportMail): void)|null */
-    public ?\Closure $onSend = null;
+    /** @var (Closure(ScheduledReportMail): void)|null */
+    public ?Closure $onSend = null;
 
     public function isReady(): bool
     {
@@ -31,7 +32,7 @@ final class RecordingMailer implements ReportMailerInterface
 
     public function send(ScheduledReportMail $mail): void
     {
-        if ($this->onSend !== null) {
+        if ($this->onSend instanceof Closure) {
             ($this->onSend)($mail);
         }
         if ($this->failures > 0) {

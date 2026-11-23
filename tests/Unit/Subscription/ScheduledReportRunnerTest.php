@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle\Tests\Unit\Subscription;
 
 use LogicException;
+use Nowo\ReportKitBundle\Application\ReportTypeRegistry;
 use Nowo\ReportKitBundle\Application\Run\RunResult;
 use Nowo\ReportKitBundle\Application\Run\ScheduledReportRunner;
 use Nowo\ReportKitBundle\Application\Scope\NoContextScopeResolver;
+use Nowo\ReportKitBundle\Contract\AbstractReportType;
+use Nowo\ReportKitBundle\Contract\ContextChoice;
 use Nowo\ReportKitBundle\Contract\ContextRef;
 use Nowo\ReportKitBundle\Contract\Event\ReportAccessCheckEvent;
 use Nowo\ReportKitBundle\Contract\Event\ReportKitEvents;
@@ -15,21 +18,28 @@ use Nowo\ReportKitBundle\Contract\Event\ScheduledReportFailedEvent;
 use Nowo\ReportKitBundle\Contract\Event\ScheduledReportPausedEvent;
 use Nowo\ReportKitBundle\Contract\Event\ScheduledReportSentEvent;
 use Nowo\ReportKitBundle\Contract\Exception\ReportLimitExceededException;
+use Nowo\ReportKitBundle\Contract\Frequency;
+use Nowo\ReportKitBundle\Contract\MailAttachment;
 use Nowo\ReportKitBundle\Contract\Message\DispatchDueReportsMessage;
 use Nowo\ReportKitBundle\Contract\Message\RunScheduledReportMessage;
+use Nowo\ReportKitBundle\Contract\OwnerRef;
 use Nowo\ReportKitBundle\Contract\PauseReason;
 use Nowo\ReportKitBundle\Contract\Report;
+use Nowo\ReportKitBundle\Contract\ReportAccessCheckerInterface;
 use Nowo\ReportKitBundle\Contract\ReportFormat;
+use Nowo\ReportKitBundle\Contract\ReportParameters;
 use Nowo\ReportKitBundle\Contract\ReportRequest;
+use Nowo\ReportKitBundle\Contract\ReportScopeResolverInterface;
 use Nowo\ReportKitBundle\Contract\RunStatus;
-use Nowo\ReportKitBundle\Contract\ScheduledReportMail;
+use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Tests\Fixtures\OrdersReportType;
 use Nowo\ReportKitBundle\Tests\Fixtures\Web\PersonalReportType;
 use Nowo\ReportKitBundle\Tests\Fixtures\Web\RevenueReportType;
 use RuntimeException;
-use stdClass;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Security\Core\User\InMemoryUser;
+
+use const DATE_ATOM;
 
 /**
  * {@see ScheduledReportRunner}: one mail per slot, retries before and after the hand-over, the owner checked at run
@@ -40,13 +50,13 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
 {
     public function testASlotIsSentOnceAsTheOwnerInTheOwnersLocale(): void
     {
-        $view = $this->subscribe(formats: [ReportFormat::Csv]);
-        $locales = [];
+        $view                 = $this->subscribe(formats: [ReportFormat::Csv]);
+        $locales              = [];
         $this->mailer->onSend = function () use (&$locales): void {
             $locales[] = $this->translator->getLocale();
         };
         $this->directory->people['user:alice']['locale'] = 'de';
-        $message = $this->claim();
+        $message                                         = $this->claim();
 
         $result = $this->runner()->run($message);
         self::assertSame(RunStatus::Sent, $result->status);
@@ -57,7 +67,7 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
         self::assertSame('Alice', $mail->recipientName);
         self::assertSame(['de'], $locales, 'the mail is handed over in the owner locale');
         self::assertSame('en', $this->translator->getLocale(), 'and the locale is restored');
-        self::assertSame(['report-pdf.pdf', 'report-csv.csv'], array_map(static fn ($a): string => $a->filename, $mail->attachments));
+        self::assertSame(['report-pdf.pdf', 'report-csv.csv'], array_map(static fn (MailAttachment $a): string => $a->filename, $mail->attachments));
         self::assertFalse($mail->attachmentsDropped);
         self::assertSame('https://reports.example.test/reports/orders?period=30&context=project%3Aa1&seed=0', $mail->reportUrl);
         self::assertSame('https://reports.example.test/reports', $mail->subscriptionsUrl);
@@ -84,8 +94,8 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
 
     public function testAFailureBeforeTheHandOverIsRetriedAndSendsOnce(): void
     {
-        $view = $this->subscribe();
-        $message = $this->claim();
+        $view                   = $this->subscribe();
+        $message                = $this->claim();
         $this->mailer->failures = 1;
         try {
             $this->runner()->run($message);
@@ -120,8 +130,8 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
 
     public function testThreeFailuresInARowPauseWithoutRethrowing(): void
     {
-        $view = $this->subscribe();
-        $message = $this->claim();
+        $view                   = $this->subscribe();
+        $message                = $this->claim();
         $this->mailer->failures = 5;
         foreach ([1, 2] as $attempt) {
             try {
@@ -141,7 +151,7 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
 
     public function testABuildOverALimitCountsAsAFailure(): void
     {
-        $this->subscriptions(registry: $this->boomRegistry())->create(self::owner(), 'boom', new \Nowo\ReportKitBundle\Contract\ReportParameters(30, null), new \Nowo\ReportKitBundle\Contract\Schedule(\Nowo\ReportKitBundle\Contract\Frequency::Daily, 1, 1, 7, 'Europe/Madrid'), []);
+        $this->subscriptions(registry: $this->boomRegistry())->create(self::owner(), 'boom', new ReportParameters(30, null), new Schedule(Frequency::Daily, 1, 1, 7, 'Europe/Madrid'), []);
         $message = $this->claim();
         try {
             $this->runner($this->boomRegistry())->run($message);
@@ -183,12 +193,12 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
     public function testLostAccessToTheTypeOrTheContextPauses(): void
     {
         // The subscribed context is no longer among alice's contexts: never widened to "all accessible".
-        $view = $this->subscribe(context: new ContextRef('project', 'a2'));
+        $view    = $this->subscribe(context: new ContextRef('project', 'a2'));
         $message = $this->claim();
-        $scope = new class implements \Nowo\ReportKitBundle\Contract\ReportScopeResolverInterface {
-            public function accessibleContexts(\Nowo\ReportKitBundle\Contract\OwnerRef $owner, object $user, string $type): array
+        $scope   = new class implements ReportScopeResolverInterface {
+            public function accessibleContexts(OwnerRef $owner, object $user, string $type): array
             {
-                return [new \Nowo\ReportKitBundle\Contract\ContextChoice(new ContextRef('project', 'a1'), 'Alpha')];
+                return [new ContextChoice(new ContextRef('project', 'a1'), 'Alpha')];
             }
         };
         $result = $this->runner(scope: $scope)->run($message);
@@ -197,22 +207,22 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
 
         // The type's permission is gone (revenue is granted on a1 only; bob has b1).
         $this->setUp();
-        $revenue = $this->subscriptions()->create(self::owner(), 'revenue', new \Nowo\ReportKitBundle\Contract\ReportParameters(7, new ContextRef('project', 'a1')), new \Nowo\ReportKitBundle\Contract\Schedule(\Nowo\ReportKitBundle\Contract\Frequency::Daily, 1, 1, 7, 'Europe/Madrid'), []);
+        $revenue = $this->subscriptions()->create(self::owner(), 'revenue', new ReportParameters(7, new ContextRef('project', 'a1')), new Schedule(Frequency::Daily, 1, 1, 7, 'Europe/Madrid'), []);
         $message = $this->claim();
-        $denied = new class implements \Nowo\ReportKitBundle\Contract\ReportAccessCheckerInterface {
-            public function allows(\Nowo\ReportKitBundle\Contract\OwnerRef $owner, object $user, string $type, array $contexts): array
+        $denied  = new class implements ReportAccessCheckerInterface {
+            public function allows(OwnerRef $owner, object $user, string $type, array $contexts): array
             {
                 return [];
             }
 
-            public function allowsWithoutContext(\Nowo\ReportKitBundle\Contract\OwnerRef $owner, object $user, string $type): bool
+            public function allowsWithoutContext(OwnerRef $owner, object $user, string $type): bool
             {
                 return false;
             }
         };
         self::assertSame(PauseReason::NoAccess, $this->runner(access: $denied)->run($message)->reason);
         self::assertSame([], $this->mailer->sent);
-        self::assertNotNull($revenue);
+        self::assertSame('revenue', $revenue->type);
     }
 
     public function testZeroContextsOnARealScopeResolverFailClosedUnlessGranted(): void
@@ -227,8 +237,8 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
         $this->setUp();
         $this->directory->add('carol');
         $this->subscribe(context: null, owner: 'carol');
-        $message = $this->claim();
-        $events  = new EventDispatcher();
+        $message   = $this->claim();
+        $events    = new EventDispatcher();
         $scheduled = [];
         $events->addListener(ReportKitEvents::REPORT_ACCESS_CHECK, static function (ReportAccessCheckEvent $event) use (&$scheduled): void {
             $scheduled[] = $event->scheduled;
@@ -240,19 +250,19 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
 
     public function testARemovedTypePauses(): void
     {
-        $view = $this->subscribe();
+        $view    = $this->subscribe();
         $message = $this->claim();
-        $result = $this->runner($this->registry(disabled: ['orders']))->run($message);
+        $result  = $this->runner($this->registry(disabled: ['orders']))->run($message);
         self::assertSame(PauseReason::TypeRemoved, $result->reason);
         self::assertSame('type_removed', $this->row($view->id->value)['pause_reason']);
     }
 
     public function testAnUnreadyMailerSkipsAndKeepsTheSchedule(): void
     {
-        $view = $this->subscribe();
-        $message = $this->claim();
+        $view                = $this->subscribe();
+        $message             = $this->claim();
         $this->mailer->ready = false;
-        $result = $this->runner()->run($message);
+        $result              = $this->runner()->run($message);
         self::assertSame([RunStatus::Skipped, 'mail_not_ready', null], [$result->status, $result->code, $result->reason]);
         $row = $this->row($view->id->value);
         self::assertSame([1, null, 'skipped', 'mail_not_ready'], [(int) $row['enabled'], $row['pause_reason'], $row['last_status'], $row['last_error_code']]);
@@ -261,14 +271,14 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
 
     public function testASubscriptionPausedOrDeletedAfterTheClaimIsNotSent(): void
     {
-        $view = $this->subscribe();
+        $view    = $this->subscribe();
         $message = $this->claim();
         $this->subscriptions()->setEnabled(self::owner(), $view->id, false);
         $result = $this->runner()->run($message);
         self::assertSame([RunStatus::Skipped, 'paused'], [$result->status, $result->code]);
         self::assertSame('owner', $this->row($view->id->value)['pause_reason'], 'the owner pause is kept');
 
-        $other = $this->subscribe();
+        $other   = $this->subscribe();
         $message = $this->claim();
         $this->subscriptions()->delete(self::owner(), $other->id);
         self::assertSame(RunResult::GONE, $this->runner()->run($message)->code);
@@ -292,7 +302,7 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
         $message       = $this->claim();
         $this->formats = [ReportFormat::Pdf];
         $this->runner()->run($message);
-        self::assertSame(['report-pdf.pdf'], array_map(static fn ($a): string => $a->filename, $this->mailer->sent[0]->attachments));
+        self::assertSame(['report-pdf.pdf'], array_map(static fn (MailAttachment $a): string => $a->filename, $this->mailer->sent[0]->attachments));
     }
 
     public function testDamagedMessagesAndRowsFailClosed(): void
@@ -301,7 +311,7 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
         self::assertSame(RunResult::GONE, $this->runner()->run(new RunScheduledReportMessage('01933b1c-5d2e-7a3b-8c4d-00000000b002', '2026-11-24 06:00', 't'))->code);
         self::assertSame(RunResult::GONE, $this->runner()->run(new RunScheduledReportMessage('01933b1c-5d2e-7a3b-8c4d-00000000b002', '2026-11-24T06:00:00Z', 't'))->code);
 
-        $view = $this->subscribe();
+        $view    = $this->subscribe();
         $message = $this->claim();
         $this->connection->executeStatement("UPDATE nowo_report_subscription SET owner_id = ' alice'");
         self::assertSame(PauseReason::OwnerInactive, $this->runner()->run($message)->reason);
@@ -327,8 +337,8 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
         $this->subscribe();
         $message = $this->claim();
         $this->connection->insert('nowo_report_run', [
-            'id' => '01933b1c-5d2e-7a3b-8c4d-00000000c001', 'subscription_id' => $message->subscriptionId, 'owner_type' => 'user', 'owner_id' => 'alice',
-            'slot_at' => '2026-11-24 06:00:00', 'status' => 'running', 'formats' => '[]', 'bytes' => 0, 'duration_ms' => 0, 'error_code' => null,
+            'id'       => '01933b1c-5d2e-7a3b-8c4d-00000000c001', 'subscription_id' => $message->subscriptionId, 'owner_type' => 'user', 'owner_id' => 'alice',
+            'slot_at'  => '2026-11-24 06:00:00', 'status' => 'running', 'formats' => '[]', 'bytes' => 0, 'duration_ms' => 0, 'error_code' => null,
             'attempts' => 1, 'lease_at' => $this->clock->now()->format('Y-m-d H:i:s'), 'created_at' => '2026-11-24 06:00:00',
         ]);
         self::assertSame(RunResult::DUPLICATE, $this->runner()->run($message)->code, 'a worker holds the lease');
@@ -365,9 +375,9 @@ final class ScheduledReportRunnerTest extends SubscriptionTestCase
         return $pass->runs[0];
     }
 
-    private function boomRegistry(): \Nowo\ReportKitBundle\Application\ReportTypeRegistry
+    private function boomRegistry(): ReportTypeRegistry
     {
-        $boom = new class($this->translator) extends \Nowo\ReportKitBundle\Contract\AbstractReportType {
+        $boom = new class($this->translator) extends AbstractReportType {
             public function key(): string
             {
                 return 'boom';

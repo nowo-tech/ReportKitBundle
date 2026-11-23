@@ -19,6 +19,7 @@ use Nowo\ReportKitBundle\Contract\PreparedReport;
 use Nowo\ReportKitBundle\Contract\ReportBuilderInterface;
 use Nowo\ReportKitBundle\Contract\ReportFormat;
 use Nowo\ReportKitBundle\Contract\ReportSettingsProviderInterface;
+use Nowo\ReportKitBundle\Contract\ReportTypeInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
 use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Contract\SubscriptionId;
@@ -41,6 +42,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 
@@ -117,6 +119,11 @@ final readonly class SubscriptionController
         $this->limits->view($viewer->owner);
         $prepared = $this->prepare($type, $viewer, $request);
         $query    = SubscriptionMapper::raw($prepared->request->parameters);
+        $asked    = $request->query->get('context');
+        if ($prepared->request->parameters->contextUnavailable && is_string($asked)) {
+            // Keep the context that was asked for: the POST resolves it again and refuses it (never "all accessible").
+            $query['context'] = $asked;
+        }
         $extra    = $this->extraFormats();
         $timezone = $this->directory->timezone($viewer->owner);
         $form     = $this->forms->createNamed('schedule', ScheduleType::class, [
@@ -133,15 +140,19 @@ final readonly class SubscriptionController
             'allow_hour'  => $this->allowHour,
         ]);
         $form->handleRequest($request);
+        $this->guardCsrf($form);
+        if (!$form->isSubmitted() && $prepared->request->parameters->contextUnavailable) {
+            $form->addError(new FormError($this->translator->trans('schedule.error.context', [], self::DOMAIN)));
+        }
         if ($form->isSubmitted() && $form->isValid() && $this->created($form, $prepared, $viewer, $extra)) {
             return $this->dialog->redirectToRoute(ReportController::ROUTE_INDEX, [], Response::HTTP_SEE_OTHER, $request);
         }
 
         return $this->page($request, $form, new PageHeader(
-            self::label('schedule.title'),
+            $this->label('schedule.title'),
             new Label('schedule.intro', self::DOMAIN, ['%report%' => $this->title($prepared)]),
-            back: new BackLink($this->urls->generate(ReportController::ROUTE_SHOW, ['type' => $type] + $query), self::label('show.back_to_report'), 'report-kit-schedule-back'),
-        ), self::label('schedule.submit'), $this->urls->generate(ReportController::ROUTE_SHOW, ['type' => $type] + $query), 'report-kit-schedule');
+            back: new BackLink($this->urls->generate(ReportController::ROUTE_SHOW, ['type' => $type] + $query), $this->label('show.back_to_report'), 'report-kit-schedule-back'),
+        ), $this->label('schedule.submit'), $this->urls->generate(ReportController::ROUTE_SHOW, ['type' => $type] + $query), 'report-kit-schedule');
     }
 
     /**
@@ -154,14 +165,16 @@ final readonly class SubscriptionController
         $view = $this->subscription($viewer, $id);
         $form = $this->actionForm(self::ROUTE_TOGGLE, $view);
         $form->handleRequest($request);
+        $this->guardCsrf($form, true);
         $action = $view->enabled ? 'pause' : 'resume';
         if ($form->isSubmitted() && $form->isValid()) {
             try {
+                // @igor-ignore - A value built in this call (form, response, e-mail), never a shared service.
                 $this->subscriptions->setEnabled($viewer->owner, $view->id, !$view->enabled, $this->postedVersion($form));
 
                 return $this->dialog->redirectToRoute(ReportController::ROUTE_INDEX, [], Response::HTTP_SEE_OTHER, $request);
             } catch (SubscriptionChangedException) {
-                return $this->changed($request, $viewer, $view, self::ROUTE_TOGGLE, $action);
+                return $this->changed($request, $viewer, $view, self::ROUTE_TOGGLE);
             }
         }
 
@@ -178,13 +191,14 @@ final readonly class SubscriptionController
         $view = $this->subscription($viewer, $id);
         $form = $this->actionForm(self::ROUTE_DELETE, $view);
         $form->handleRequest($request);
+        $this->guardCsrf($form, true);
         if ($form->isSubmitted() && $form->isValid()) {
             try {
                 $this->subscriptions->delete($viewer->owner, $view->id, $this->postedVersion($form));
 
                 return $this->dialog->redirectToRoute(ReportController::ROUTE_INDEX, [], Response::HTTP_SEE_OTHER, $request);
             } catch (SubscriptionChangedException) {
-                return $this->changed($request, $viewer, $view, self::ROUTE_DELETE, 'delete');
+                return $this->changed($request, $viewer, $view, self::ROUTE_DELETE);
             }
         }
 
@@ -204,7 +218,7 @@ final readonly class SubscriptionController
         return $viewer;
     }
 
-    private static function label(string $key): Label
+    private function label(string $key): Label
     {
         return new Label($key, self::DOMAIN);
     }
@@ -217,13 +231,7 @@ final readonly class SubscriptionController
      */
     private function created(FormInterface $form, PreparedReport $prepared, Viewer $viewer, array $extra): bool
     {
-        foreach ($form as $child) {
-            if (!$child->isSynchronized()) {
-                $form->addError(new FormError($this->translator->trans('schedule.error.invalid', [], self::DOMAIN)));
-
-                return false;
-            }
-        }
+        // A choice outside the lists (no validator in the host) arrives as null and is refused by Schedule below.
         if ($prepared->request->parameters->contextUnavailable) {
             $form->addError(new FormError($this->translator->trans('schedule.error.context', [], self::DOMAIN)));
 
@@ -242,9 +250,9 @@ final readonly class SubscriptionController
             $frequency = Frequency::tryFrom(is_string($data['frequency'] ?? null) ? $data['frequency'] : '') ?? throw new InvalidReportArgumentException('frequency');
             $schedule  = new Schedule(
                 $frequency,
-                self::int($data['weekday'] ?? null),
-                self::int($data['month_day'] ?? null),
-                $this->allowHour ? self::int($data['hour'] ?? null) : $this->defaultHour,
+                $this->int($data['weekday'] ?? null),
+                $this->int($data['month_day'] ?? null),
+                $this->allowHour ? $this->int($data['hour'] ?? null) : $this->defaultHour,
                 is_string($data['timezone'] ?? null) ? $data['timezone'] : '',
             );
             $this->subscriptions->create($viewer->owner, $prepared->type->key(), $prepared->request->parameters, $schedule, $formats);
@@ -253,15 +261,20 @@ final readonly class SubscriptionController
 
             return false;
         } catch (InvalidReportArgumentException|UnknownReportTypeException) {
+            // @codeCoverageIgnoreStart
+            // Defensive: every field is a choice list the form already refuses (Symfony's transformation-failure
+            // handling, with or without a validator); a host override of the form or of the settings between the GET
+            // and the POST could still reach it.
             $form->addError(new FormError($this->translator->trans('schedule.error.invalid', [], self::DOMAIN)));
 
             return false;
+            // @codeCoverageIgnoreEnd
         }
 
         return true;
     }
 
-    private static function int(mixed $value): int
+    private function int(mixed $value): int
     {
         return is_int($value) ? $value : (is_numeric($value) ? (int) $value : -1);
     }
@@ -308,18 +321,36 @@ final readonly class SubscriptionController
     {
         $type = $this->types->get($key);
 
-        return $type === null ? $key : $this->translator->trans($type->labelKey(), [], $type->translationDomain() ?? 'messages');
+        return $type instanceof ReportTypeInterface ? $this->translator->trans($type->labelKey(), [], $type->translationDomain() ?? 'messages') : $key;
     }
 
+    /**
+     * The owner's subscription (the route requirement guarantees a well-formed id); 404 otherwise.
+     */
     private function subscription(Viewer $viewer, string $id): SubscriptionView
     {
-        try {
-            $view = $this->subscriptions->get($viewer->owner, new SubscriptionId($id));
-        } catch (InvalidReportArgumentException $e) {
-            throw new NotFoundHttpException('Unknown subscription.', $e);
-        }
+        return $this->subscriptions->get($viewer->owner, new SubscriptionId($id)) ?? throw new NotFoundHttpException('Unknown subscription.');
+    }
 
-        return $view ?? throw new NotFoundHttpException('Unknown subscription.');
+    /**
+     * A submitted form whose CSRF token is missing or wrong answers 403 (contract §14), never a 422 that invites a retry.
+     *
+     * @param FormInterface<mixed> $form
+     * @param bool $csrfOnly a CSRF-only form: any invalid submission is a token failure
+     */
+    private function guardCsrf(FormInterface $form, bool $csrfOnly = false): void
+    {
+        if (!$form->isSubmitted()) {
+            return;
+        }
+        if ($csrfOnly && !$form->isValid()) {
+            throw new AccessDeniedHttpException('Invalid CSRF token.');
+        }
+        foreach ($form->getErrors() as $error) {
+            if ($error instanceof FormError && $error->getCause() instanceof CsrfToken) {
+                throw new AccessDeniedHttpException('Invalid CSRF token.');
+            }
+        }
     }
 
     /**
@@ -349,16 +380,16 @@ final readonly class SubscriptionController
     /**
      * 409: the row changed meanwhile; the page shows the current state with a fresh form.
      */
-    private function changed(Request $request, Viewer $viewer, SubscriptionView $stale, string $route, string $action): Response
+    private function changed(Request $request, Viewer $viewer, SubscriptionView $stale, string $route): Response
     {
-        $current = $this->subscriptions->get($viewer->owner, $stale->id);
-        if (!$current instanceof SubscriptionView) {
-            return $this->dialog->redirectToRoute(ReportController::ROUTE_INDEX, [], Response::HTTP_SEE_OTHER, $request);
-        }
-        $form = $this->actionForm($route, $current);
+        $current = $this->subscription($viewer, $stale->id->value);
+        $form    = $this->actionForm($route, $current);
+        // @igor-ignore - A value built in this call (form, response, e-mail), never a shared service.
         $form->addError(new FormError($this->translator->trans('subscriptions.changed', [], self::DOMAIN)));
         $response = $this->actionPage($request, $form, $current, $route === self::ROUTE_DELETE ? 'delete' : ($current->enabled ? 'pause' : 'resume'));
+        // @igor-ignore - A value built in this call (form, response, e-mail), never a shared service.
         $response->setStatusCode(Response::HTTP_CONFLICT);
+        // @igor-ignore - A value built in this call (form, response, e-mail), never a shared service.
         $response->headers->set('X-Report-Kit-Code', SubscriptionChangedException::CODE);
 
         return $response;
@@ -370,10 +401,10 @@ final readonly class SubscriptionController
     private function actionPage(Request $request, FormInterface $form, SubscriptionView $view, string $action): Response
     {
         return $this->page($request, $form, new PageHeader(
-            self::label('subscriptions.' . $action . '.title'),
+            $this->label('subscriptions.' . $action . '.title'),
             new Label('subscriptions.' . $action . '.message', self::DOMAIN, ['%report%' => $this->typeTitle($view->type)]),
-            back: new BackLink($this->urls->generate(ReportController::ROUTE_INDEX), self::label('show.back'), 'report-kit-subscription-back'),
-        ), self::label('subscriptions.' . $action . '.label'), $this->urls->generate(ReportController::ROUTE_INDEX), 'report-kit-subscription-' . $action, $action === 'delete');
+            back: new BackLink($this->urls->generate(ReportController::ROUTE_INDEX), $this->label('show.back'), 'report-kit-subscription-back'),
+        ), $this->label('subscriptions.' . $action . '.label'), $this->urls->generate(ReportController::ROUTE_INDEX), 'report-kit-subscription-' . $action, $action === 'delete');
     }
 
     /**

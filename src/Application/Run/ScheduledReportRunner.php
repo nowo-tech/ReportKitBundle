@@ -30,6 +30,7 @@ use Nowo\ReportKitBundle\Contract\ReportBuilderInterface;
 use Nowo\ReportKitBundle\Contract\ReportExporterInterface;
 use Nowo\ReportKitBundle\Contract\ReportFormat;
 use Nowo\ReportKitBundle\Contract\ReportMailerInterface;
+use Nowo\ReportKitBundle\Contract\ReportTypeInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
 use Nowo\ReportKitBundle\Contract\RunStatus;
 use Nowo\ReportKitBundle\Contract\ScheduledReportMail;
@@ -127,7 +128,7 @@ final readonly class ScheduledReportRunner
         $logger = $this->logger ?? new NullLogger();
         try {
             $id   = new SubscriptionId($message->subscriptionId);
-            $slot = self::slot($message->slotAt);
+            $slot = $this->slot($message->slotAt);
         } catch (InvalidReportArgumentException) {
             $logger->warning('nowo_report_kit: ignored a damaged RunScheduledReportMessage.');
 
@@ -178,7 +179,7 @@ final readonly class ScheduledReportRunner
         } catch (InvalidReportArgumentException) {
             return $this->finish($row, $slot, $message, RunStatus::Paused, PauseReason::OwnerInactive->value, PauseReason::OwnerInactive, [], 0, $started);
         }
-        if ($this->types->get($row->reportType) === null) {
+        if (!$this->types->get($row->reportType) instanceof ReportTypeInterface) {
             return $this->pause($row, $slot, $message, PauseReason::TypeRemoved, $started);
         }
         $user  = $this->directory->userOf($owner);
@@ -190,7 +191,7 @@ final readonly class ScheduledReportRunner
             return $this->finish($row, $slot, $message, RunStatus::Skipped, self::MAIL_NOT_READY, null, [], 0, $started);
         }
         $parameters = SubscriptionMapper::parameters($row);
-        $locale     = self::locale($this->directory->locale($owner));
+        $locale     = $this->locale($this->directory->locale($owner));
         $timezone   = $this->directory->timezone($owner);
 
         $built = $this->inLocale($locale, function () use ($row, $owner, $user, $parameters, $locale, $timezone, $email, $slot): ScheduledReportMail|PauseReason {
@@ -317,8 +318,9 @@ final readonly class ScheduledReportRunner
      */
     private function finish(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, RunStatus $status, ?string $code, ?PauseReason $reason, array $formats, int $bytes, int $started): RunResult
     {
-        $now    = $this->clock->now();
-        $paused = $this->store->transactional(function () use ($row, $slot, $message, $status, $code, $reason, $formats, $bytes, $started, $now): bool {
+        $now = $this->clock->now();
+        // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
+        $this->store->transactional(function () use ($row, $slot, $message, $status, $code, $reason, $formats, $bytes, $started, $now): bool {
             $current = $this->store->find($row->id, true);
             $paused  = false;
             if ($current instanceof Subscription) {
@@ -333,10 +335,10 @@ final readonly class ScheduledReportRunner
                 }
                 $this->store->update($current->id, $values + $this->releaseClaim($current, $message), $now);
             }
-            $this->store->updateRun($row->id, $slot, ['status' => $status->value, 'formats' => $formats, 'bytes' => $bytes, 'duration_ms' => self::ms($started), 'error_code' => $code, 'lease_at' => null]);
+            $this->store->updateRun($row->id, $slot, ['status' => $status->value, 'formats' => $formats, 'bytes' => $bytes, 'duration_ms' => $this->ms($started), 'error_code' => $code, 'lease_at' => null]);
 
             return $paused;
-        }, function (bool $paused) use ($row, $slot, $status, $reason, $formats, $bytes): void {
+        }, function (bool $paused) use ($row, $slot, $status, $reason, $formats, $bytes): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
             $owner = new OwnerRef($row->ownerType, $row->ownerId);
             $id    = new SubscriptionId($row->id);
             if ($status === RunStatus::Sent) {
@@ -369,7 +371,8 @@ final readonly class ScheduledReportRunner
             $failure instanceof ReportLimitExceededException => self::LIMIT_EXCEEDED,
             default                                          => self::RUN_FAILED,
         };
-        $now     = $this->clock->now();
+        $now = $this->clock->now();
+        // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
         $outcome = $this->store->transactional(function () use ($row, $slot, $message, $code, $started, $now): array {
             $current  = $this->store->find($row->id, true);
             $failures = ($current instanceof Subscription ? $current->consecutiveFailures : $row->consecutiveFailures) + 1;
@@ -382,10 +385,10 @@ final readonly class ScheduledReportRunner
                 }
                 $this->store->update($current->id, $values + $this->releaseClaim($current, $message), $now);
             }
-            $this->store->updateRun($row->id, $slot, ['status' => ($pause ? RunStatus::Paused : RunStatus::Failed)->value, 'duration_ms' => self::ms($started), 'error_code' => $code, 'lease_at' => null]);
+            $this->store->updateRun($row->id, $slot, ['status' => ($pause ? RunStatus::Paused : RunStatus::Failed)->value, 'duration_ms' => $this->ms($started), 'error_code' => $code, 'lease_at' => null]);
 
             return [$failures, $pause];
-        }, function (array $outcome) use ($row, $slot, $code): void {
+        }, function (array $outcome) use ($row, $slot, $code): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
             [$failures, $pause] = $outcome;
             $id                 = new SubscriptionId($row->id);
             $this->events?->dispatch(new ScheduledReportFailedEvent($id, $slot, $code, $failures), ReportKitEvents::SCHEDULED_REPORT_FAILED);
@@ -437,7 +440,7 @@ final readonly class ScheduledReportRunner
         return $this->localeSwitcher instanceof LocaleSwitcher ? $this->localeSwitcher->runWithLocale($locale, $work) : $work();
     }
 
-    private static function locale(?string $locale): string
+    private function locale(?string $locale): string
     {
         return is_string($locale) && preg_match('/^[a-z]{2,3}([_-][A-Za-z0-9]{2,8})?$/D', $locale) === 1 ? $locale : 'en';
     }
@@ -445,7 +448,7 @@ final readonly class ScheduledReportRunner
     /**
      * @throws InvalidReportArgumentException
      */
-    private static function slot(string $value): DateTimeImmutable
+    private function slot(string $value): DateTimeImmutable
     {
         $slot = preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', $value) === 1
             ? DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s\Z', $value, new DateTimeZone('UTC'))
@@ -457,7 +460,7 @@ final readonly class ScheduledReportRunner
         return $slot;
     }
 
-    private static function ms(int $started): int
+    private function ms(int $started): int
     {
         return intdiv(hrtime(true) - $started, 1_000_000);
     }

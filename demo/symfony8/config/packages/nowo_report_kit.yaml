@@ -1,14 +1,26 @@
 # S2: the report pages with two demo types (App\Report\*), the demo scope resolver and access checker, every format.
+# S3: scheduled e-mail subscriptions (tables on the default entity manager, the demo people directory, Symfony Mailer
+# to Mailpit). The demo runs the due reports from the home page button; a real host consumes the schedule
+# `scheduler_nowo_report_kit` or calls `nowo:report-kit:dispatch-due` from its scheduler.
 nowo_report_kit:
     enabled: true
     owner:
         id_field: userIdentifier
+        directory: App\Report\DemoOwnerDirectory
     scope:
         resolver: App\Report\DemoScopeResolver
         access_checker: App\Report\DemoAccessChecker
     types:
         order: [signups, orders_by_status]
     filename_prefix: demo-report
+    subscriptions:
+        enabled: true
+        max_per_owner: 5
+    schedule:
+        enabled: true
+        default_timezone: Europe/Madrid
+    mail:
+        from: 'reports@demo.test'
     web_ui:
         enabled: true
         path_prefix: /reports

@@ -19,7 +19,6 @@ use Nowo\ReportKitBundle\Infrastructure\Mail\DisabledReportMailer;
 use Nowo\ReportKitBundle\Infrastructure\Mail\SymfonyReportMailer;
 use Nowo\ReportKitBundle\Infrastructure\Owner\DoctrineOwnerDirectory;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use stdClass;
 use Symfony\Bridge\Twig\Extension\TranslationExtension;
 use Symfony\Component\Mailer\Envelope;
@@ -78,7 +77,9 @@ final class MailAndDirectoryTest extends TestCase
         self::assertSame('Hola:', trim(explode("\n", (string) $email->getTextBody())[0]));
 
         $mailer->send($this->mail([], false, 'https://x.test/r'));
-        self::assertStringContainsString('Abre el informe para verlo.', (string) $sent->messages[1]->getTextBody());
+        $second = $sent->messages[1];
+        self::assertInstanceOf(Email::class, $second);
+        self::assertStringContainsString('Abre el informe para verlo.', (string) $second->getTextBody());
     }
 
     public function testReadinessFollowsMailKit(): void
@@ -180,19 +181,11 @@ final class MailAndDirectoryTest extends TestCase
     }
 
     /**
-     * @return array{SymfonyReportMailer, object}
+     * @return array{SymfonyReportMailer, MemoryMailer}
      */
     private function mailer(?string $from = null, ?object $readiness = null): array
     {
-        $sent = new class implements MailerInterface {
-            /** @var list<RawMessage> */
-            public array $messages = [];
-
-            public function send(RawMessage $message, ?Envelope $envelope = null): void
-            {
-                $this->messages[] = $message;
-            }
-        };
+        $sent       = new MemoryMailer();
         $translator = new Translator('en');
         $translator->addLoader('yaml', new YamlFileLoader());
         $translator->addResource('yaml', dirname(__DIR__, 3) . '/src/Resources/translations/NowoReportKitBundle.es.yaml', 'es', 'NowoReportKitBundle');
@@ -213,5 +206,19 @@ final class MailAndDirectoryTest extends TestCase
         $report = new Report('Pedidos <script>', 'Últimos 7 días', new DateTimeImmutable('2026-11-24T06:00:00Z'), [], 'orders', 'Resumen', glance: 'Todo bien');
 
         return new ScheduledReportMail(new SubscriptionId('01933b1c-5d2e-7a3b-8c4d-00000000a001'), new OwnerRef('user', 'alice'), 'alice@example.test', 'es', $url === null ? null : 'Alice', $report, $attachments, $url, $url === null ? null : 'https://reports.example.test/reports', $dropped, new DateTimeImmutable('2026-11-24T06:00:00Z'));
+    }
+}
+
+/**
+ * Mailer double: keeps every message.
+ */
+final class MemoryMailer implements MailerInterface
+{
+    /** @var list<RawMessage> */
+    public array $messages = [];
+
+    public function send(RawMessage $message, ?Envelope $envelope = null): void
+    {
+        $this->messages[] = $message;
     }
 }

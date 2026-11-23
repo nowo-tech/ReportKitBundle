@@ -18,6 +18,8 @@ use function dirname;
 use function str_contains;
 use function sys_get_temp_dir;
 
+use const PHP_VERSION_ID;
+
 /**
  * The bundle tables on a connection, created by the ORM schema tool from the XML mapping (or the attribute twins),
  * with the bundle's metadata listener (prefix, collation): the same path a host's `doctrine:schema:update` takes.
@@ -42,7 +44,7 @@ final class Schema
         if ($mapping !== 'attribute') {
             $config->setMetadataDriverImpl(new SimplifiedXmlDriver([$src . '/Resources/config/doctrine' => 'Nowo\\ReportKitBundle\\Domain'], '.orm.xml', true));
         }
-        if (\PHP_VERSION_ID >= 80400) {
+        if (PHP_VERSION_ID >= 80400) {
             $config->enableNativeLazyObjects(true);
         } else {
             $config->setProxyDir(sys_get_temp_dir() . '/nowo-report-kit-proxies');

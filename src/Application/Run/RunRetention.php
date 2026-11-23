@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ReportKitBundle\Application\Run;
 
+use Nowo\ReportKitBundle\Contract\Exception\ReportKitConflictException;
 use Nowo\ReportKitBundle\Contract\Message\PruneReportRunsMessage;
 use Nowo\ReportKitBundle\Domain\SubscriptionStoreInterface;
 use Psr\Clock\ClockInterface;
@@ -47,7 +48,12 @@ final readonly class RunRetention
             if ($ids === []) {
                 return new PruneReport($deleted, null);
             }
-            $deleted += $this->store->transactional(fn (): int => $this->store->deleteRuns($ids));
+            try {
+                $deleted += $this->store->transactional(fn (): int => $this->store->deleteRuns($ids));
+            } catch (ReportKitConflictException $conflict) {
+                // Earlier batches of this pass are committed: CONFLICT_002 (read again, do not repeat blindly).
+                throw $deleted > 0 ? $conflict->afterPartialCommit() : $conflict;
+            }
             $after = end($ids);
             if (count($ids) < $this->batchSize) {
                 return new PruneReport($deleted, null);

@@ -191,6 +191,16 @@ final class NowoReportKitExtension extends Extension implements PrependExtension
     }
 
     /**
+     * Whether DoctrineBundle is registered (`load()` runs on a merge container that only knows the kernel's bundles).
+     */
+    private function hasDoctrine(ContainerBuilder $container): bool
+    {
+        $bundles = $container->hasParameter('kernel.bundles') ? $container->getParameter('kernel.bundles') : [];
+
+        return $container->hasExtension('doctrine') || (is_array($bundles) && isset($bundles['DoctrineBundle']));
+    }
+
+    /**
      * Whether the subscriptions are on: `true`, or `auto` with DoctrineBundle and an owner directory (`owner.directory`
      * or `owner.class`).
      *
@@ -241,8 +251,9 @@ final class NowoReportKitExtension extends Extension implements PrependExtension
         $container->setParameter(self::ALIAS . '.api_prefix', $config['api']['prefix']);
         $container->setParameter(self::ALIAS . '.table_prefix', $config['doctrine']['table_prefix']);
         $container->setParameter(self::ALIAS . '.config', $config);
-        $subscriptions = $config['enabled'] === true && self::subscriptionsOn($config, $container->hasExtension('doctrine'));
-        if ($subscriptions && !$container->hasExtension('doctrine')) {
+        $doctrine      = $this->hasDoctrine($container);
+        $subscriptions = $config['enabled'] === true && self::subscriptionsOn($config, $doctrine);
+        if ($subscriptions && !$doctrine) {
             throw new InvalidConfigurationException('"nowo_report_kit.subscriptions.enabled" is true but DoctrineBundle is not registered: the subscriptions are stored through Doctrine DBAL (install doctrine/doctrine-bundle, or set it to "auto" / false).');
         }
         if ($subscriptions && $config['owner']['directory'] === null && $config['owner']['class'] === null) {

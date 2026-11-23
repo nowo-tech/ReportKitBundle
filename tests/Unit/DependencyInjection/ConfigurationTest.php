@@ -40,9 +40,11 @@ final class ConfigurationTest extends TestCase
             'render_seconds'       => 25,
             'max_pdf_html_bytes'   => 5242880,
         ], $config['limits']);
-        self::assertSame(['enabled' => true, 'max_per_owner' => 10, 'frequencies' => ['daily', 'weekly', 'monthly'], 'default_hour' => 7, 'allow_hour_choice' => true], $config['subscriptions']);
+        self::assertSame(['enabled' => 'auto', 'max_per_owner' => 10, 'frequencies' => ['daily', 'weekly', 'monthly'], 'default_hour' => 7, 'allow_hour_choice' => true], $config['subscriptions']);
         self::assertSame(['enabled' => false, 'cron' => '5 * * * *', 'default_timezone' => 'UTC', 'batch' => 200, 'max_failures' => 3, 'stale_claim_minutes' => 30], $config['schedule']);
-        self::assertSame(['enabled' => 'auto', 'template' => '@NowoReportKit/email/scheduled_report.html.twig', 'max_attachment_bytes' => 8388608], $config['mail']);
+        self::assertSame(['enabled' => 'auto', 'template' => '@NowoReportKit/email/scheduled_report.html.twig', 'max_attachment_bytes' => 8388608, 'mailer' => null, 'from' => null], $config['mail']);
+        self::assertSame(['attempts' => 3, 'lock_timeout_ms' => 5000], $config['concurrency']);
+        self::assertSame(['status' => 409, 'retry_after' => 1], $config['conflict_response']);
         self::assertSame(['base_url' => null], $config['links']);
         self::assertSame(['run_days' => 90, 'batch_size' => 500], $config['retention']);
         self::assertSame(['max_seconds' => 50], $config['messenger']);
@@ -129,6 +131,9 @@ final class ConfigurationTest extends TestCase
         yield 'brand context type' => [['brand' => ['context_type' => 'Project']], 'Expected null or a context type'];
         yield 'temp dir empty' => [['temp_dir' => ''], 'Expected null or a directory path'];
         yield 'temp dir nul' => [['temp_dir' => "/tmp/\0x"], 'Expected null or a directory path'];
+        yield 'mail from' => [['mail' => ['from' => 'not an address']], 'Expected null or an e-mail address'];
+        yield 'subscriptions switch' => [['subscriptions' => ['enabled' => 'yes']], 'Expected true, false or "auto"'];
+        yield 'conflict status' => [['conflict_response' => ['status' => 500]], 'nowo_report_kit.conflict_response.status'];
         yield 'admin path' => [['admin_ui' => ['path_prefix' => '']], 'Expected an absolute path without a trailing slash'];
     }
 

@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Nowo\ReportKitBundle\Tests\Unit\Subscription;
 
+use Nowo\ReportKitBundle\Application\Run\DueReportsDispatcher;
 use Nowo\ReportKitBundle\Contract\Message\DispatchDueReportsMessage;
 use Nowo\ReportKitBundle\Tests\Fixtures\SteppingClock;
 
 /**
- * {@see \Nowo\ReportKitBundle\Application\Run\DueReportsDispatcher}: the atomic claim, its keyset, the stale claim,
+ * {@see DueReportsDispatcher}: the atomic claim, its keyset, the stale claim,
  * the time budget and the off switch.
  */
 final class DueReportsDispatcherTest extends SubscriptionTestCase

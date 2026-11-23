@@ -22,6 +22,8 @@ use Nowo\ReportKitBundle\Tests\Fixtures\Subscription\Schema;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
+use const DATE_ATOM;
+
 /**
  * {@see DbalSubscriptionStore} details: the connection lookup, damaged rows, the one reconnect, the row lock SQL, the
  * run rows and retention queries.
@@ -112,8 +114,31 @@ final class SubscriptionStoreTest extends TestCase
         $connection->expects(self::once())->method('close');
         $connection->expects(self::exactly(2))->method('fetchAssociative')
             ->with(self::stringEndsWith('WHERE id = ? FOR UPDATE'))
-            ->willReturnOnConsecutiveCalls(self::throwException(self::lost()), false);
+            ->willReturnOnConsecutiveCalls(self::throwException($this->lost()), false);
         self::assertNull($this->storeOn($connection)->find('x', true));
+    }
+
+    public function testARowWithWrongTypesIsDamaged(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->method('isTransactionActive')->willReturn(false);
+        $connection->method('getDatabasePlatform')->willReturn(new MySQL84Platform());
+        $connection->method('fetchAssociative')->willReturn(['id' => 5, 'parameters' => null, 'formats' => null]);
+        self::assertNull($this->storeOn($connection)->find('5'));
+        self::assertStringContainsString('Column "id" is not a string', $this->logger->records[0]['context']['message']);
+
+        $nulls = $this->createMock(Connection::class);
+        $nulls->method('isTransactionActive')->willReturn(false);
+        $nulls->method('getDatabasePlatform')->willReturn(new MySQL84Platform());
+        $nulls->method('fetchAssociative')->willReturn([
+            'id' => 'x', 'owner_type' => 'user', 'owner_id' => 'alice', 'report_type' => 'orders', 'parameters' => null, 'frequency' => 'daily',
+            'weekday' => 1, 'month_day' => 1, 'hour' => 7, 'timezone' => 'UTC', 'formats' => null, 'enabled' => 1, 'pause_reason' => null,
+            'next_run_at' => '2026-11-24 06:00:00', 'claim_token' => null, 'claimed_at' => null, 'last_run_at' => null, 'last_status' => null,
+            'last_error_code' => null, 'consecutive_failures' => 0, 'version' => 1, 'created_at' => '2026-11-23 06:00:00', 'updated_at' => '2026-11-23 06:00:00',
+        ]);
+        $row = $this->storeOn($nulls)->find('x');
+        self::assertNotNull($row);
+        self::assertSame([[], []], [$row->parameters, $row->formats], 'NULL JSON reads as empty');
     }
 
     public function testALostConnectionInsideATransactionIsRethrown(): void
@@ -121,7 +146,7 @@ final class SubscriptionStoreTest extends TestCase
         $connection = $this->createMock(Connection::class);
         $connection->method('isTransactionActive')->willReturn(true);
         $connection->method('getDatabasePlatform')->willReturn(new MySQL84Platform());
-        $connection->method('fetchAssociative')->willThrowException(self::lost());
+        $connection->method('fetchAssociative')->willThrowException($this->lost());
         $this->expectException(ConnectionLost::class);
         $this->storeOn($connection)->find('x');
     }
@@ -160,7 +185,7 @@ final class SubscriptionStoreTest extends TestCase
         return new DbalSubscriptionStore($registry, new AfterCommitQueue(), 'default', 'nowo_', $this->logger);
     }
 
-    private static function lost(): ConnectionLost
+    private function lost(): ConnectionLost
     {
         return new ConnectionLost(new class('gone away', 'HY000', 2006) extends AbstractException {
         }, null);

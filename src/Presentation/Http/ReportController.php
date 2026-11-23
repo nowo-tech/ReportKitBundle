@@ -229,11 +229,9 @@ final readonly class ReportController
                 new Column('status', self::label('subscriptions.column.status')),
             ],
             $rows,
-            function (mixed $row) use ($dialog): array {
-                if (!is_array($row) || !is_string($row['id'] ?? null)) {
-                    return [];
-                }
-                $enabled = ($row['enabled'] ?? false) === true;
+            /** @param array{id: string, enabled: bool} $row */
+            function (array $row) use ($dialog): array {
+                $enabled = $row['enabled'];
                 $attrs   = ['data-nowo-ui-dialog-form' => true, 'data-nowo-ui-dialog-title' => $dialog];
 
                 return [

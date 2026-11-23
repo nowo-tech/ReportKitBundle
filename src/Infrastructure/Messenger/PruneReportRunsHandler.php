@@ -41,7 +41,7 @@ final readonly class PruneReportRunsHandler
             $this->bus?->dispatch($report->remainder);
         }
         $report = new PruneReport($deleted, $report->remainder);
-        ($this->logger ?? new NullLogger())->info('nowo_report_kit: retention deleted {deleted} run row(s).', ['deleted' => $report->deleted, 'more' => $report->remainder !== null]);
+        ($this->logger ?? new NullLogger())->info('nowo_report_kit: retention deleted {deleted} run row(s).', ['deleted' => $report->deleted, 'more' => $report->remainder instanceof PruneReportRunsMessage]);
 
         return $report;
     }

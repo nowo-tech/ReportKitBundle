@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\ReportKitBundle\Tests\Unit\Subscription;
 
+use DateTimeImmutable;
 use LogicException;
 use Nowo\ReportKitBundle\Application\Run\RunResult;
 use Nowo\ReportKitBundle\Application\Run\RunRetention;
@@ -21,11 +22,13 @@ use Nowo\ReportKitBundle\Tests\Fixtures\MemoryLogger;
 use Nowo\ReportKitBundle\Tests\Fixtures\SteppingClock;
 use ReflectionClass;
 use RuntimeException;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Scheduler\Generator\MessageContext;
 use Symfony\Component\Scheduler\RecurringMessage;
 
 /**
@@ -61,7 +64,7 @@ final class MessengerAndCommandsTest extends SubscriptionTestCase
         $this->subscribe();
         $this->clock->modify('+1 day');
         $this->mailer->failures = 1;
-        $pass = (new DispatchDueReportsHandler($this->dispatcher(), $this->runner()))(new DispatchDueReportsMessage());
+        $pass                   = (new DispatchDueReportsHandler($this->dispatcher(), $this->runner()))(new DispatchDueReportsMessage());
         self::assertCount(2, $pass->runs);
         self::assertCount(1, $this->mailer->sent);
     }
@@ -105,7 +108,7 @@ final class MessengerAndCommandsTest extends SubscriptionTestCase
         self::assertSame(1, $timed->deleted);
         self::assertInstanceOf(PruneReportRunsMessage::class, $timed->remainder);
 
-        $bus = $this->bus();
+        $bus    = $this->bus();
         $report = (new PruneReportRunsHandler(new RunRetention($this->store, $this->clock, 90, 1, 50), $bus, new MemoryLogger()))($timed->remainder);
         self::assertSame(2, $report->deleted);
         self::assertNull($report->remainder);
@@ -126,8 +129,8 @@ final class MessengerAndCommandsTest extends SubscriptionTestCase
         $this->subscribe();
         $this->clock->modify('+1 day');
         $this->mailer->failures = 1;
-        $tester = new CommandTester(new DispatchDueCommand($this->dispatcher(batch: 1), $this->runner()));
-        self::assertSame(1, $tester->execute([], ['verbosity' => \Symfony\Component\Console\Output\OutputInterface::VERBOSITY_VERBOSE]));
+        $tester                 = new CommandTester(new DispatchDueCommand($this->dispatcher(batch: 1), $this->runner()));
+        self::assertSame(1, $tester->execute([], ['verbosity' => OutputInterface::VERBOSITY_VERBOSE]));
         self::assertStringContainsString('2 slot(s) claimed, run in this process, 1 failed.', $tester->getDisplay());
         self::assertStringContainsString(': sent', $tester->getDisplay());
 
@@ -156,25 +159,31 @@ final class MessengerAndCommandsTest extends SubscriptionTestCase
         $messages = [];
         foreach ((new ReportKitScheduleProvider('*/15 * * * *'))->getSchedule()->getRecurringMessages() as $recurring) {
             self::assertInstanceOf(RecurringMessage::class, $recurring);
-            foreach ($recurring->getProvider()->getMessages(new \Symfony\Component\Scheduler\Generator\MessageContext('nowo_report_kit', $recurring->getId(), $recurring->getTrigger(), new \DateTimeImmutable())) as $message) {
+            foreach ($recurring->getProvider()->getMessages(new MessageContext('nowo_report_kit', $recurring->getId(), $recurring->getTrigger(), new DateTimeImmutable())) as $message) {
                 $messages[] = $message::class . ' ' . $recurring->getTrigger();
             }
         }
         self::assertSame([DispatchDueReportsMessage::class . ' */15 * * * *', PruneReportRunsMessage::class . ' 17 3 * * *'], $messages);
     }
 
-    private function bus(): MessageBusInterface
+    private function bus(): MemoryBus
     {
-        return new class implements MessageBusInterface {
-            /** @var list<object> */
-            public array $dispatched = [];
+        return new MemoryBus();
+    }
+}
 
-            public function dispatch(object $message, array $stamps = []): Envelope
-            {
-                $this->dispatched[] = $message;
+/**
+ * Bus double: keeps every dispatched message.
+ */
+final class MemoryBus implements MessageBusInterface
+{
+    /** @var list<object> */
+    public array $dispatched = [];
 
-                return new Envelope($message);
-            }
-        };
+    public function dispatch(object $message, array $stamps = []): Envelope
+    {
+        $this->dispatched[] = $message;
+
+        return new Envelope($message);
     }
 }
