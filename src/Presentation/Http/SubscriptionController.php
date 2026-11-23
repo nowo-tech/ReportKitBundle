@@ -260,16 +260,16 @@ final readonly class SubscriptionController
             $form->addError(new FormError($this->translator->trans('schedule.error.limit', ['%limit%' => $limit->limit], self::DOMAIN)));
 
             return false;
-        } catch (InvalidReportArgumentException|UnknownReportTypeException) {
-            // @codeCoverageIgnoreStart
             // Defensive: every field is a choice list the form already refuses (Symfony's transformation-failure
             // handling, with or without a validator); a host override of the form or of the settings between the GET
-            // and the POST could still reach it.
+            // and the POST could still reach the catch below.
+            // @codeCoverageIgnoreStart
+        } catch (InvalidReportArgumentException|UnknownReportTypeException) {
             $form->addError(new FormError($this->translator->trans('schedule.error.invalid', [], self::DOMAIN)));
 
             return false;
-            // @codeCoverageIgnoreEnd
         }
+        // @codeCoverageIgnoreEnd
 
         return true;
     }

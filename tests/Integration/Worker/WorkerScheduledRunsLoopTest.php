@@ -63,7 +63,7 @@ final class WorkerScheduledRunsLoopTest extends KernelTestCase
         self::assertInstanceOf(ScheduledReportRunner::class, $runner);
         // The handler a Messenger worker would call (this kernel has no bus, so the container drops the service).
         $handler = new RunScheduledReportHandler($runner);
-        $mailer = $tests->get(RecordingMailer::class);
+        $mailer  = $tests->get(RecordingMailer::class);
         self::assertInstanceOf(RecordingMailer::class, $mailer);
         $clock = $tests->get('clock');
         self::assertInstanceOf(MockClock::class, $clock);

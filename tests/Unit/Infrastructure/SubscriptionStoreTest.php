@@ -131,9 +131,9 @@ final class SubscriptionStoreTest extends TestCase
         $nulls->method('isTransactionActive')->willReturn(false);
         $nulls->method('getDatabasePlatform')->willReturn(new MySQL84Platform());
         $nulls->method('fetchAssociative')->willReturn([
-            'id' => 'x', 'owner_type' => 'user', 'owner_id' => 'alice', 'report_type' => 'orders', 'parameters' => null, 'frequency' => 'daily',
-            'weekday' => 1, 'month_day' => 1, 'hour' => 7, 'timezone' => 'UTC', 'formats' => null, 'enabled' => 1, 'pause_reason' => null,
-            'next_run_at' => '2026-11-24 06:00:00', 'claim_token' => null, 'claimed_at' => null, 'last_run_at' => null, 'last_status' => null,
+            'id'              => 'x', 'owner_type' => 'user', 'owner_id' => 'alice', 'report_type' => 'orders', 'parameters' => null, 'frequency' => 'daily',
+            'weekday'         => 1, 'month_day' => 1, 'hour' => 7, 'timezone' => 'UTC', 'formats' => null, 'enabled' => 1, 'pause_reason' => null,
+            'next_run_at'     => '2026-11-24 06:00:00', 'claim_token' => null, 'claimed_at' => null, 'last_run_at' => null, 'last_status' => null,
             'last_error_code' => null, 'consecutive_failures' => 0, 'version' => 1, 'created_at' => '2026-11-23 06:00:00', 'updated_at' => '2026-11-23 06:00:00',
         ]);
         $row = $this->storeOn($nulls)->find('x');

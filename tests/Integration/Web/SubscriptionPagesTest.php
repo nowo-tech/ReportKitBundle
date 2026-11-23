@@ -11,8 +11,12 @@ use Nowo\ReportKitBundle\Contract\Event\ReportSubscriptionChangedEvent;
 use Nowo\ReportKitBundle\Contract\OwnerRef;
 use Nowo\ReportKitBundle\Contract\ReportFormat;
 use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
+use Nowo\ReportKitBundle\Tests\Fixtures\OrdersReportType;
+use Nowo\ReportKitBundle\Tests\Fixtures\Web\TeamAccessChecker;
+use Nowo\ReportKitBundle\Tests\Fixtures\Web\TeamScopeResolver;
 use Nowo\ReportKitBundle\Tests\Fixtures\Web\WebKernel;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\Request;
@@ -186,22 +190,22 @@ final class SubscriptionPagesTest extends WebKernelTestCase
 
     public function testWithoutAValidatorAChoiceOutsideTheListsIsStillRefused(): void
     {
-        $this->kernel = $this->bootWeb(['scope' => ['resolver' => \Nowo\ReportKitBundle\Tests\Fixtures\Web\TeamScopeResolver::class, 'access_checker' => \Nowo\ReportKitBundle\Tests\Fixtures\Web\TeamAccessChecker::class]], static function (\Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator $c): void {
+        $this->kernel = $this->bootWeb(['scope' => ['resolver' => TeamScopeResolver::class, 'access_checker' => TeamAccessChecker::class]], static function (ContainerConfigurator $c): void {
             $c->extension('framework', ['validation' => ['enabled' => false]]);
             $s = $c->services();
-            $s->set(\Nowo\ReportKitBundle\Tests\Fixtures\OrdersReportType::class)->autowire()->autoconfigure();
-            $s->set(\Nowo\ReportKitBundle\Tests\Fixtures\Web\TeamScopeResolver::class);
-            $s->set(\Nowo\ReportKitBundle\Tests\Fixtures\Web\TeamAccessChecker::class);
+            $s->set(OrdersReportType::class)->autowire()->autoconfigure();
+            $s->set(TeamScopeResolver::class);
+            $s->set(TeamAccessChecker::class);
         }, true, [], 'sqlite:///' . WebKernel::baseDir() . '/novalidator.sqlite');
         $em = $this->doctrine($this->kernel)->getManager();
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         (new SchemaTool($em))->createSchema($em->getMetadataFactory()->getAllMetadata());
 
-        [, , $fragment] = $this->send('GET', '/reports/orders/schedule?period=30', 'alice', [], true);
+        [, , $fragment]    = $this->send('GET', '/reports/orders/schedule?period=30', 'alice', [], true);
         [$status, , $html] = $this->send('POST', $this->action($fragment), 'alice', $this->scheduleData($fragment, ['schedule[hour]' => '99', 'schedule[timezone]' => 'Mars/Olympus']), true);
         self::assertSame(422, $status);
         self::assertStringContainsString('name="schedule[hour]"', $html);
-        self::assertSame([], $this->subscriptions()->ofOwner(new \Nowo\ReportKitBundle\Contract\OwnerRef('user', 'alice')));
+        self::assertSame([], $this->subscriptions()->ofOwner(new OwnerRef('user', 'alice')));
     }
 
     private function subscriptions(): SubscriptionsInterface

@@ -14,6 +14,7 @@ use Nowo\UiKitBundle\View\Action;
 use Nowo\UiKitBundle\View\BackLink;
 use Nowo\UiKitBundle\View\Column;
 use Nowo\UiKitBundle\View\EmptyState;
+use Nowo\UiKitBundle\View\FormPage;
 use Nowo\UiKitBundle\View\Label;
 use Nowo\UiKitBundle\View\ListPage;
 use Nowo\UiKitBundle\View\PageHeader;
@@ -21,6 +22,7 @@ use Nowo\UiKitBundle\View\ShowPage;
 use Nowo\UiKitBundle\View\Table;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\Forms;
 
 use function dirname;
@@ -131,10 +133,10 @@ final class PageContractTest extends PageContractTestCase
         $form = Forms::createFormFactory()->createNamedBuilder('schedule', FormType::class, ['frequency' => 'daily'], ['translation_domain' => self::DOMAIN])
             ->add('frequency', ChoiceType::class, ['label' => 'schedule.frequency.label', 'choices' => ['schedule.frequency.daily' => 'daily']])
             ->getForm();
-        $form->addError(new \Symfony\Component\Form\FormError('limit'));
+        $form->addError(new FormError('limit'));
 
         return [
-            'page'   => new \Nowo\UiKitBundle\View\FormPage(new PageHeader(self::label('schedule.title'), self::label('schedule.title'), back: new BackLink('/reports/orders', self::label('show.back_to_report'))), $form->createView(), self::label('schedule.submit'), '/reports/orders', bundle: self::DOMAIN, attributes: ['data-testid' => 'report-kit-schedule']),
+            'page'   => new FormPage(new PageHeader(self::label('schedule.title'), self::label('schedule.title'), back: new BackLink('/reports/orders', self::label('show.back_to_report'))), $form->createView(), self::label('schedule.submit'), '/reports/orders', bundle: self::DOMAIN, attributes: ['data-testid' => 'report-kit-schedule']),
             'danger' => false,
             'dialog' => false,
         ];
