@@ -108,6 +108,23 @@ abstract class SubscriptionFunctionalTestCase extends KernelTestCase
         self::assertSame(0, (int) $this->connection()->fetchOne('SELECT COUNT(*) FROM ' . $this->host()->tablePrefix() . 'report_subscription WHERE owner_id = ?', ['usera ']));
     }
 
+    public function testForgetOwnerErasesOnlyThatOwnerOnThisDatabase(): void
+    {
+        $this->subscribe('usera');
+        $this->runner()->run($this->claimOne());
+        $this->subscribe('UserA');
+        $this->subscribe('alice');
+        $subscriptions = $this->service(SubscriptionsInterface::class);
+
+        self::assertSame(['subscriptions' => 1, 'runs' => 1], $subscriptions->forgetOwner($this->host()->owner('usera')));
+        self::assertSame([], $subscriptions->ofOwner($this->host()->owner('usera')));
+        self::assertCount(1, $subscriptions->ofOwner($this->host()->owner('UserA')), 'the look-alike owner keeps its row');
+        self::assertCount(1, $subscriptions->ofOwner($this->host()->owner('alice')));
+        $locks = $this->connection()->fetchFirstColumn('SELECT owner_id FROM ' . $this->host()->tablePrefix() . 'report_owner_lock ORDER BY owner_id');
+        sort($locks);
+        self::assertSame(['UserA', 'alice'], $locks);
+    }
+
     public function testAnOwnerWhoIsNoLongerActiveIsPausedNotMailed(): void
     {
         $view = $this->subscribe('bob', new ContextRef('project', 'b1'));

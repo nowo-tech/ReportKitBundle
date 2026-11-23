@@ -12,7 +12,8 @@ use Nowo\ReportKitBundle\Infrastructure\Doctrine\Entity\ReportRunRecord;
  * and the history (status, formats, size, duration, error code). Plain PHP, mapped in XML (attribute twin
  * {@see ReportRunRecord}); written through DBAL only.
  *
- * Statuses: `running` (an attempt holds the lease since `leaseAt`), `failed` (an attempt failed before the hand-over;
+ * Statuses: `running` (the attempt `leaseToken` holds the lease since `leaseAt`; only that attempt may move or close
+ * the row, audit ZAD-L1), `failed` (an attempt failed before the hand-over;
  * the lease is released so a Messenger retry may take it), `sending` (the mail is being handed over: never taken
  * again), then `sent`, `skipped` or `paused`.
  *
@@ -42,6 +43,7 @@ class ReportRun
         public readonly int $attempts,
         public readonly ?DateTimeImmutable $leaseAt,
         public readonly DateTimeImmutable $createdAt,
+        public readonly ?string $leaseToken = null,
     ) {
     }
 }

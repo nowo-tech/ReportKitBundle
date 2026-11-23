@@ -54,6 +54,8 @@ class ReportRunRecord
         public readonly ?DateTimeImmutable $leaseAt,
         #[ORM\Column(name: 'created_at', type: Types::DATETIME_IMMUTABLE)]
         public readonly DateTimeImmutable $createdAt,
+        #[ORM\Column(name: 'lease_token', type: Types::STRING, length: 36, nullable: true)]
+        public readonly ?string $leaseToken = null,
     ) {
     }
 }

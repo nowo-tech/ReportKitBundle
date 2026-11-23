@@ -69,7 +69,7 @@ final readonly class DbalSubscriptionStore implements SubscriptionStoreInterface
 {
     private const COLUMNS = 'id, owner_type, owner_id, report_type, parameters, frequency, weekday, month_day, hour, timezone, formats, enabled, pause_reason, next_run_at, claim_token, claimed_at, last_run_at, last_status, last_error_code, consecutive_failures, version, created_at, updated_at';
 
-    private const RUN_COLUMNS = 'id, subscription_id, owner_type, owner_id, slot_at, status, formats, bytes, duration_ms, error_code, attempts, lease_at, created_at';
+    private const RUN_COLUMNS = 'id, subscription_id, owner_type, owner_id, slot_at, status, formats, bytes, duration_ms, error_code, attempts, lease_at, created_at, lease_token';
 
     private string $table;
 
@@ -324,6 +324,7 @@ final readonly class DbalSubscriptionStore implements SubscriptionStoreInterface
                 'error_code'      => $run->errorCode,
                 'attempts'        => $run->attempts,
                 'lease_at'        => $this->nullableUtc($run->leaseAt),
+                'lease_token'     => $run->leaseToken,
                 'created_at'      => $this->utc($run->createdAt),
             ], ['bytes' => ParameterType::INTEGER, 'duration_ms' => ParameterType::INTEGER, 'attempts' => ParameterType::INTEGER]));
 
@@ -336,14 +337,15 @@ final readonly class DbalSubscriptionStore implements SubscriptionStoreInterface
     /**
      * {@inheritDoc}
      */
-    public function takeRun(string $subscriptionId, DateTimeImmutable $slot, DateTimeImmutable $now, DateTimeImmutable $stale): bool
+    public function takeRun(string $subscriptionId, DateTimeImmutable $slot, DateTimeImmutable $now, DateTimeImmutable $stale, string $lease): bool
     {
+        // Never a slot that reached `sending` (or a final status): only `failed`, or `running` with a stale or no lease.
         $sql = sprintf(
-            "UPDATE %s SET status = ?, lease_at = ?, attempts = attempts + 1 WHERE subscription_id = ? AND slot_at = ? AND (status = 'failed' OR (status = ? AND (lease_at IS NULL OR lease_at < ?)))",
+            "UPDATE %s SET status = ?, lease_at = ?, lease_token = ?, attempts = attempts + 1 WHERE subscription_id = ? AND slot_at = ? AND (status = 'failed' OR (status = ? AND (lease_at IS NULL OR lease_at < ?)))",
             $this->runTable,
         );
 
-        return (int) $this->connection()->executeStatement($sql, [ReportRun::RUNNING, $this->utc($now), $subscriptionId, $this->utc($slot), ReportRun::RUNNING, $this->utc($stale)]) > 0;
+        return (int) $this->connection()->executeStatement($sql, [ReportRun::RUNNING, $this->utc($now), $lease, $subscriptionId, $this->utc($slot), ReportRun::RUNNING, $this->utc($stale)]) > 0;
     }
 
     /**
@@ -361,7 +363,7 @@ final readonly class DbalSubscriptionStore implements SubscriptionStoreInterface
     /**
      * {@inheritDoc}
      */
-    public function updateRun(string $subscriptionId, DateTimeImmutable $slot, array $values, ?string $whereStatus = null): bool
+    public function updateRun(string $subscriptionId, DateTimeImmutable $slot, array $values, array $whereStatuses = [], ?string $lease = null): bool
     {
         [$sets, $params, $types] = $this->assignments($values);
         $params[]                = $subscriptionId;
@@ -369,13 +371,44 @@ final readonly class DbalSubscriptionStore implements SubscriptionStoreInterface
         $params[]                = $this->utc($slot);
         $types[]                 = ParameterType::STRING;
         $where                   = 'subscription_id = ? AND slot_at = ?';
-        if ($whereStatus !== null) {
-            $where .= ' AND status = ?';
-            $params[] = $whereStatus;
+        if ($whereStatuses !== []) {
+            $where .= ' AND status IN (?)';
+            $params[] = array_values($whereStatuses);
+            $types[]  = ArrayParameterType::STRING;
+        }
+        if ($lease !== null) {
+            $where .= ' AND lease_token = ?';
+            $params[] = $lease;
             $types[]  = ParameterType::STRING;
         }
 
         return (int) $this->connection()->executeStatement(sprintf('UPDATE %s SET %s WHERE %s', $this->runTable, implode(', ', $sets), $where), $params, $types) > 0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function forgetOwner(OwnerRef $owner): array
+    {
+        $connection = $this->connection();
+        $counts     = [];
+        foreach (['subscriptions' => $this->table, 'runs' => $this->runTable] as $key => $table) {
+            $ids = [];
+            foreach ($connection->fetchAllAssociative(sprintf('SELECT id, owner_type, owner_id FROM %s WHERE owner_type = ? AND owner_id = ?', $table), [$owner->type, $owner->id]) as $row) {
+                // Exact rows only (REQ-SEC-006 rule 2): a folding collation must never erase a look-alike owner.
+                if ($row['owner_type'] === $owner->type && $row['owner_id'] === $owner->id && is_string($row['id'])) {
+                    $ids[] = $row['id'];
+                }
+            }
+            $counts[$key] = $ids === [] ? 0 : (int) $connection->executeStatement(sprintf('DELETE FROM %s WHERE id IN (?)', $table), [$ids], [ArrayParameterType::STRING]);
+        }
+        foreach ($connection->fetchAllAssociative(sprintf('SELECT owner_type, owner_id FROM %s WHERE owner_type = ? AND owner_id = ?', $this->lockTable), [$owner->type, $owner->id]) as $row) {
+            if ($row['owner_type'] === $owner->type && $row['owner_id'] === $owner->id) {
+                $connection->delete($this->lockTable, ['owner_type' => $owner->type, 'owner_id' => $owner->id]);
+            }
+        }
+
+        return ['subscriptions' => $counts['subscriptions'], 'runs' => $counts['runs']];
     }
 
     /**
@@ -542,6 +575,7 @@ final readonly class DbalSubscriptionStore implements SubscriptionStoreInterface
                 $this->int($row, 'attempts'),
                 $this->nullableDate($row, 'lease_at'),
                 $this->date($this->string($row, 'created_at')),
+                $this->nullableString($row, 'lease_token'),
             );
         } catch (LogicException $exception) {
             ($this->logger ?? new NullLogger())->warning('nowo_report_kit: skipped a damaged run row: {message}', ['message' => $exception->getMessage()]);

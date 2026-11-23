@@ -87,13 +87,19 @@ final class SubscriptionStoreTest extends TestCase
         self::assertTrue($this->store->insertRun($this->runRow('r1', $slot)));
         self::assertFalse($this->store->insertRun($this->runRow('r2', $slot)), 'one run per slot');
         self::assertTrue($this->store->insertRun($this->runRow('r3', $slot->modify('+1 day'))));
-        self::assertFalse($this->store->takeRun('s1', $slot, $slot, $slot->modify('-30 minutes')), 'a fresh lease is held');
-        self::assertTrue($this->store->updateRun('s1', $slot, ['status' => 'failed', 'lease_at' => null], 'running'));
-        self::assertFalse($this->store->updateRun('s1', $slot, ['status' => 'sent'], 'running'));
-        self::assertTrue($this->store->takeRun('s1', $slot, $slot, $slot->modify('-30 minutes')));
+        self::assertFalse($this->store->takeRun('s1', $slot, $slot, $slot->modify('-30 minutes'), 'lease-b'), 'a fresh lease is held');
+        self::assertFalse($this->store->updateRun('s1', $slot, ['status' => 'failed'], ['running'], 'lease-b'), 'not the holder');
+        self::assertTrue($this->store->updateRun('s1', $slot, ['status' => 'failed', 'lease_at' => null], ['running'], 'lease-a'));
+        self::assertFalse($this->store->updateRun('s1', $slot, ['status' => 'sent'], ['running']));
+        self::assertTrue($this->store->takeRun('s1', $slot, $slot, $slot->modify('-30 minutes'), 'lease-b'));
         $run = $this->store->findRun('s1', $slot);
         self::assertNotNull($run);
-        self::assertSame(['running', 2], [$run->status, $run->attempts]);
+        self::assertSame(['running', 2, 'lease-b'], [$run->status, $run->attempts, $run->leaseToken]);
+        self::assertFalse($this->store->updateRun('s1', $slot, ['status' => 'failed'], ['running'], 'lease-a'), 'a superseded attempt writes nothing');
+        self::assertTrue($this->store->updateRun('s1', $slot, ['status' => 'sending'], ['running'], 'lease-b'));
+        self::assertFalse($this->store->takeRun('s1', $slot, $slot->modify('+1 day'), $slot->modify('+1 day'), 'lease-c'), 'a slot that reached sending is never taken again');
+        self::assertTrue($this->store->updateRun('s1', $slot, ['status' => 'sent'], ['running', 'sending'], 'lease-b'));
+        self::assertFalse($this->store->takeRun('s1', $slot, $slot->modify('+1 day'), $slot->modify('+1 day'), 'lease-c'));
         self::assertNull($this->store->findRun('S1', $slot));
 
         self::assertSame(['r1', 'r3'], $this->store->oldRuns($slot->modify('+5 days'), 10, null));
@@ -200,6 +206,6 @@ final class SubscriptionStoreTest extends TestCase
 
     private function runRow(string $id, DateTimeImmutable $slot): ReportRun
     {
-        return new ReportRun($id, 's1', 'user', 'alice', $slot, ReportRun::RUNNING, [], 0, 0, null, 1, $slot, $slot);
+        return new ReportRun($id, 's1', 'user', 'alice', $slot, ReportRun::RUNNING, [], 0, 0, null, 1, $slot, $slot, 'lease-a');
     }
 }

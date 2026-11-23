@@ -31,11 +31,17 @@ use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Contract\SubscriptionId;
 use Nowo\ReportKitBundle\Domain\Subscription;
 use Nowo\ReportKitBundle\Domain\SubscriptionStoreInterface;
+use Nowo\ReportKitBundle\Infrastructure\Console\ForgetOwnerCommand;
 use Nowo\ReportKitBundle\Infrastructure\Persistence\AfterCommitQueue;
+use Nowo\ReportKitBundle\Presentation\Routing\RouterReportLinks;
 use Nowo\ReportKitBundle\Tests\Fixtures\MemoryLogger;
 use Nowo\ReportKitBundle\Tests\Fixtures\Subscription\StubLinks;
 use RuntimeException;
 use stdClass;
+use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Translation\LocaleSwitcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -159,6 +165,32 @@ final class EdgeCasesTest extends SubscriptionTestCase
         }
         $report = (new RunRetention($this->store, $this->clock, 90, 10))->prune(new PruneReportRunsMessage());
         self::assertSame([2, null], [$report->deleted, $report->remainder]);
+    }
+
+    public function testForgetOwnerAndItsCommand(): void
+    {
+        $this->subscriptions()->create(self::owner(), 'orders', new ReportParameters(7, null), new Schedule(Frequency::Daily), []);
+        $this->subscriptions()->create(self::owner('bob'), 'orders', new ReportParameters(7, null), new Schedule(Frequency::Daily), []);
+        $tester = new CommandTester(new ForgetOwnerCommand($this->subscriptions()));
+        self::assertSame(0, $tester->execute(['type' => 'user', 'id' => 'alice']));
+        self::assertStringContainsString('1 subscription(s) and 0 run row(s) erased.', $tester->getDisplay());
+        self::assertSame([], $this->subscriptions()->ofOwner(self::owner()));
+        self::assertCount(1, $this->subscriptions()->ofOwner(self::owner('bob')));
+        self::assertSame(1, $tester->execute(['type' => 'user', 'id' => ' alice']), 'an unusable owner id is refused');
+    }
+
+    public function testMailLinksToALocalHostAreReported(): void
+    {
+        $router = $this->createStub(RouterInterface::class);
+        $routes = new RouteCollection();
+        $routes->add('nowo_report_kit_index', new Route('/reports'));
+        $router->method('getRouteCollection')->willReturn($routes);
+        $logger = new MemoryLogger();
+        (new RouterReportLinks($router, true, null, '', 'localhost', 'http', $logger))->subscriptionsUrl();
+        self::assertStringContainsString('links point at', $logger->records[0]['message']);
+        $quiet = new MemoryLogger();
+        (new RouterReportLinks($router, true, 'https://app.example.test', '', 'localhost', 'http', $quiet))->subscriptionsUrl();
+        self::assertSame([], $quiet->records);
     }
 
     public function testInvalidMessagesNeverReachTheStore(): void

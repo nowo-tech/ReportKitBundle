@@ -188,7 +188,14 @@ current address, in their locale, and every run builds the report **as the owner
    checker), whether they are still active, their address, locale and time zone. The default reads your Doctrine
    user class (`owner.class`, looked up by `owner.id_field`) with the conventional getters `getEmail()`,
    `getLocale()`, `getTimezone()`, `isEnabled()` / `isActive()`, `getDisplayName()`; or plug your own
-   `OwnerDirectoryInterface` (`owner.directory`).
+   `OwnerDirectoryInterface` (`owner.directory`). A user without `isEnabled()` / `isActive()` counts as **active**, so
+   hosts with soft delete, bans or anonymisation must expose `isEnabled()` (or plug a directory). The default reads
+   through your entity manager, so a user it already manages is not refreshed within one pass of `dispatch-due --sync`
+   or one dispatch handler without a bus (Messenger clears the manager between messages); audit ZAD-I5.
+
+   When a person is deleted or anonymised, erase their rows: `SubscriptionsInterface::forgetOwner($owner)` or
+   `bin/console nowo:report-kit:forget-owner user <id>` (the UserKit eraser of S4 will call it). Prefer a non-reusable
+   `owner.id_field` (UUID / numeric id).
 
    ```yaml
    nowo_report_kit:
@@ -197,7 +204,7 @@ current address, in their locale, and every run builds the report **as the owner
        subscriptions: { enabled: auto, max_per_owner: 10 }     # auto: on with DoctrineBundle and a directory
        schedule: { enabled: true, cron: '5 * * * *', default_timezone: Europe/Madrid }
        mail: { from: 'reports@example.com' }                  # or framework.mailer.headers.From
-       links: { base_url: 'https://app.example.com' }         # or framework.router.default_uri
+       links: { base_url: 'https://app.example.com' }         # or framework.router.default_uri (a local host is logged as a warning)
    ```
 
 3. **Running the schedule.** `schedule.enabled` is the master switch of the runs (`ReportSettingsProviderInterface::

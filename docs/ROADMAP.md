@@ -38,7 +38,7 @@ installed, no XLSX `quotePrefix`) were accepted by the owner on 2026-11-22.
 What is left:
 
 - **S3** (subscriptions and runs) is built on `feat/s3-subscriptions`; its contract deviations are in
-  [S3 notes](#s3-notes-contract-deviations); immediate SEC-004 audit next.
+  [S3 notes](#s3-notes-contract-deviations); audit ZAD (SHIP) findings fixed on the PR before the 0.3.0 tag.
 - **Slices S4 to S6** (not started): operator page and GDPR, docs
   and i18n, public API. S3 and the S6 API need an **immediate** REQ-SEC-004 audit before
   their tags; the other slices are audited in the batch.
@@ -124,7 +124,7 @@ Additive changes to the contract text, kept for review before 0.3.0:
 | --- | --- | --- | --- |
 | `SubscriptionsInterface` | `create`, `ofOwner`, `setEnabled`, `delete`, `setEnabledAsOperator`, `page`, `forgetContext` | `create`, `ofOwner`, `get`, `setEnabled`, `delete` (with an optional `$expectedVersion`); the operator methods and `forgetContext()` in S4 | the pages need one subscription by id and owner; the optimistic version answers REQ-RUNTIME-003 for owner pauses that race a run; operator page and GDPR are S4 |
 | `SubscriptionView::$version`, `$lastErrorCode`, `$consecutiveFailures`, `$createdAt` | not listed | added (last, optional) | the pages post the version back; the list shows why a run failed or skipped |
-| `report_subscription.version`, `report_run.attempts`, `lease_at`, `report_owner_lock` table | not listed | added | optimistic version (stale pause / delete → 409); a run lease that a Messenger retry or a stale worker can take over exactly once; the per-owner lock row that makes `max_per_owner` hold under concurrent creates (same pattern as ApiTokenBundle) |
+| `report_subscription.version`, `report_run.attempts`, `lease_at`, `lease_token`, `report_owner_lock` table | not listed | added | optimistic version (stale pause / delete → 409); a run lease that a Messenger retry or a stale worker can take over exactly once; the per-owner lock row that makes `max_per_owner` hold under concurrent creates (same pattern as ApiTokenBundle) |
 | Run row statuses | `sent \| skipped \| failed \| paused` | plus the transient `running` and `sending` | `sending` is written before the mailer is called, so a redelivery after the hand-over never sends twice |
 | `subscriptions.enabled` | `true` | `true \| false \| "auto"`, default `auto` (on with DoctrineBundle and an owner directory) | a 0.2 host without Doctrine or a directory keeps building; `true` without them refuses |
 | `mail.mailer`, `mail.from`, `concurrency.*`, `conflict_response.*` | not listed | new keys | own mailer; sender of the default mailer; REQ-RUNTIME-003 replay and conflict answer (same keys as ApiTokenBundle) |
@@ -137,6 +137,8 @@ Additive changes to the contract text, kept for review before 0.3.0:
 | Runner inside a transaction | not listed | refused (`LogicException`, unrecoverable for Messenger) | Messenger's `doctrine_transaction` middleware would send the mail before the commit (REQ-RUNTIME-003 rule 7) |
 | Ambiguous local hour (fall back) | "a repeated hour runs once" | runs once, at the **first** occurrence | PHP resolves the wall time to the second occurrence; the bundle picks the earlier instant |
 | `schema-check` command, reference DDL | §5.3 | still S5 | as planned in the slices table |
+| `SubscriptionsInterface::forgetOwner()`, `nowo:report-kit:forget-owner` | eraser in S4 | added in S3 | audit ZAD-L2: hosts need an erasure path from the first release with tables |
+| Audit ZAD (2026-11-23) | — | SHIP; L1 (lease token per attempt), L2 (`forgetOwner`), I1 (lock at the hand-over), I5 / I6 / I7 (docs, local-link warning) fixed on the PR | before 0.3.0 |
 
 ## Open questions for Beacon
 

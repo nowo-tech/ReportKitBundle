@@ -16,7 +16,8 @@ use Nowo\ReportKitBundle\Contract\Exception\UnknownReportTypeException;
  * for the host's commit). Lookups go by id **and** owner, re-checked exactly in PHP: another owner's id behaves as a
  * missing one. Events ({@see Event\ReportSubscriptionChangedEvent}) are dispatched after the commit.
  *
- * The operator methods (`setEnabledAsOperator()`, `page()`) and `forgetContext()` come with S4.
+ * The operator methods (`setEnabledAsOperator()`, `page()`) and `forgetContext()` come with S4; the UserKit eraser
+ * (S4) will call {@see self::forgetOwner()}.
  */
 interface SubscriptionsInterface
 {
@@ -74,4 +75,16 @@ interface SubscriptionsInterface
      * @return bool false when the subscription does not exist or is not the owner's (404)
      */
     public function delete(OwnerRef $owner, SubscriptionId $id, ?int $expectedVersion = null): bool;
+
+    /**
+     * Erases an owner (audit ZAD-L2): every subscription, every run row and the lock row of exactly this owner, in one
+     * transaction. Call it when the person is deleted or anonymised (until the UserKit eraser of S4 does it), and
+     * before an owner id could ever be reused (prefer a non-reusable `owner.id_field`, such as a UUID). No event per
+     * row; nothing of another owner is touched (exact match, REQ-SEC-006).
+     *
+     * @throws ReportKitConflictException a lock conflict
+     *
+     * @return array{subscriptions: int, runs: int} rows deleted
+     */
+    public function forgetOwner(OwnerRef $owner): array;
 }

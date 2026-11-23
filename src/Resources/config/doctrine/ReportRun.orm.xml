@@ -29,6 +29,7 @@
         <field name="errorCode" type="string" column="error_code" length="64" nullable="true"/>
         <field name="attempts" type="smallint" column="attempts"/>
         <field name="leaseAt" type="datetime_immutable" column="lease_at" nullable="true"/>
+        <field name="leaseToken" type="string" column="lease_token" length="36" nullable="true"/>
         <field name="createdAt" type="datetime_immutable" column="created_at"/>
     </entity>
 </doctrine-mapping>

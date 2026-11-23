@@ -34,6 +34,7 @@ final readonly class ReportKitExactKeyColumns implements ExactKeyColumnsInterfac
             'subscription_id' => 'idempotency key with slot_at (unique): one mail per slot',
             'owner_type'      => 'owner type of the run history (export / erasure)',
             'owner_id'        => 'owner id of the run history (export / erasure key)',
+            'lease_token'     => 'run lease token: only the attempt that holds the slot closes its row',
         ],
         ReportKitMetadataListener::LOCK_TABLE => [
             'owner_type' => 'per-owner create lock key',

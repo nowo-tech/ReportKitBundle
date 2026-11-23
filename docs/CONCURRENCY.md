@@ -20,9 +20,10 @@ S1 and S2 have no write path of their own (rendering and pages only; the rate-li
 | Create a subscription | `SubscriptionsInterface::create()` | one transaction: `UPDATE` (or first `INSERT`) of the owner's row in `<prefix>report_owner_lock`, then count, then `INSERT`; concurrent creates of one owner run one after the other, so `subscriptions.max_per_owner` holds on every database and isolation level | lock wait / deadlock → replayed, then `CONFLICT_001` |
 | Pause / resume / delete | `setEnabled()`, `delete()` | one transaction: the row `SELECT … FOR UPDATE` (by primary key), the version the owner saw compared, then `UPDATE … WHERE id = ? AND version = ?` (`version = version + 1`) | stale version → `SubscriptionChangedException` (409 `SUBSCRIPTION_CHANGED`, no `X-Conflict-Code`); lock → `CONFLICT_001` |
 | Claim a due slot | `DueReportsDispatcher` | one conditional `UPDATE … SET claim_token, claimed_at, next_run_at WHERE id = ? AND enabled AND next_run_at = :slot AND (claim_token IS NULL OR claimed_at < :stale)` per row: exactly one dispatcher wins | the loser matches nothing |
-| Take a run slot | `ScheduledReportRunner` | `INSERT` into `<prefix>report_run` with the unique key `(subscription_id, slot_at)` (inside a savepoint); a duplicate only takes over a row left `failed` or with a lease older than `schedule.stale_claim_minutes` (one conditional `UPDATE`) | duplicate → the run stops (`duplicate`) |
-| Hand over | runner | the run row moves `running → sending` (conditional `UPDATE … WHERE status = 'running'`) **before** the mailer is called; a `sending` row is never taken again | — |
-| Record the outcome | runner | one transaction: the subscription `SELECT … FOR UPDATE`, failure count / pause / last status computed from the locked row, the claim cleared only when it is still this run's token, the run row updated | lock → the message is retried (the slot is `sending`: no second mail) |
+| Take a run slot | `ScheduledReportRunner` | `INSERT` into `<prefix>report_run` with the unique key `(subscription_id, slot_at)` (inside a savepoint) and this attempt's **lease token**; a duplicate only takes over a row left `failed` or `running` with a lease older than `schedule.stale_claim_minutes` (one conditional `UPDATE` that writes the new token), **never** a row that reached `sending` or a final status | duplicate → the run stops (`duplicate`) |
+| Hand over | runner | in one transaction the subscription row is locked `FOR UPDATE` (a pause or delete committed during the build stops the mail, audit ZAD-I1) and the run row moves `running → sending` only `WHERE status = 'running' AND lease_token = <this attempt>` **before** the mailer is called | lease lost → the attempt stops (`duplicate`) |
+| Record the outcome | runner | one transaction: the subscription `SELECT … FOR UPDATE`, then the run row is closed only `WHERE status IN ('running', 'sending') AND lease_token = <this attempt>` (a failure only from this attempt's own `running` row, or its own `sending` row when the mailer threw); only then the failure count / pause / last status and the claim | a superseded attempt writes nothing, emits nothing and is not retried (audit ZAD-L1) |
+| Erase an owner | `SubscriptionsInterface::forgetOwner()`, `nowo:report-kit:forget-owner` | one transaction: the owner's subscription and run ids selected and re-checked with `===`, deleted by primary key; the owner's lock row | lock → `CONFLICT_001` |
 | Retention | `RunRetention` | `retention.batch_size` ids per short transaction (keyset by id) | first batch → `CONFLICT_001`; later batch → `CONFLICT_002` (earlier batches stay deleted) |
 
 ## Units of work
@@ -53,7 +54,8 @@ and a fresh form, without `X-Conflict-Code`.
 ## Scheduled runs
 
 - **Idempotent per slot** (rule 7): a Messenger redelivery, a double claim or a stale re-claim of the same slot finds
-  the run row and stops; the mail is an external side effect done after the `sending` commit and never repeated
+  the run row and stops; an attempt that outlived its lease (audit ZAD-L1: A slow, B took over and sent, A fails late)
+  can neither move B's row back to `failed` nor make the slot retryable, so it never causes a second mail; the mail is an external side effect done after the `sending` commit and never repeated
   (at most once: a crash between the `sending` commit and the hand-over loses that slot, it never doubles it).
 - **Retries:** a failure before the hand-over is recorded (`failed`, lease released, `consecutive_failures + 1`) and
   rethrown, so the transport's retry strategy runs the same message again; at `schedule.max_failures` in a row the

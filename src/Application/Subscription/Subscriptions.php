@@ -209,6 +209,17 @@ final readonly class Subscriptions implements SubscriptionsInterface
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public function forgetOwner(OwnerRef $owner): array
+    {
+        $counts = $this->store->transactional(fn (): array => $this->store->forgetOwner($owner));
+        ($this->logger ?? new NullLogger())->info('nowo_report_kit: erased {subscriptions} subscription(s) and {runs} run row(s) of an owner of type {type}.', $counts + ['type' => $owner->type]);
+
+        return $counts;
+    }
+
+    /**
      * The owner's row, locked until the end of the transaction; null when missing or someone else's.
      *
      * @throws SubscriptionChangedException the version differs from the expected one

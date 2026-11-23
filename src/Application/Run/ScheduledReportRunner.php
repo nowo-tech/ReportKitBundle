@@ -84,11 +84,12 @@ use const FILTER_VALIDATE_EMAIL;
 final readonly class ScheduledReportRunner
 {
     /** Error codes recorded on the run and the subscription. */
-    public const MAIL_NOT_READY  = 'mail_not_ready';
-    public const PAUSED_MEANTIME = 'paused';
-    public const LIMIT_EXCEEDED  = 'limit_exceeded';
-    public const RUN_FAILED      = 'run_failed';
-    public const MAIL_FAILED     = 'mail_failed';
+    public const MAIL_NOT_READY       = 'mail_not_ready';
+    public const PAUSED_MEANTIME      = 'paused';
+    public const LIMIT_EXCEEDED       = 'limit_exceeded';
+    public const RUN_FAILED           = 'run_failed';
+    public const MAIL_FAILED          = 'mail_failed';
+    public const SUBSCRIPTION_DELETED = 'subscription_deleted';
 
     /**
      * @param int $maxFailures `schedule.max_failures`
@@ -143,19 +144,25 @@ final readonly class ScheduledReportRunner
         $started = hrtime(true);
         $now     = $this->clock->now();
         $stale   = $now->modify('-' . $this->staleMinutes . ' minutes');
-        $taken   = $this->store->transactional(fn (): bool => $this->store->insertRun(new ReportRun((string) Uuid::v7(), $row->id, $row->ownerType, $row->ownerId, $slot, ReportRun::RUNNING, [], 0, 0, null, 1, $now, $now))
-            || $this->store->takeRun($row->id, $slot, $now, $stale));
+        // Every attempt has its own lease token: only the attempt that holds the slot may move or close its run row.
+        $lease = (string) Uuid::v7();
+        $taken = $this->store->transactional(fn (): bool => $this->store->insertRun(new ReportRun((string) Uuid::v7(), $row->id, $row->ownerType, $row->ownerId, $slot, ReportRun::RUNNING, [], 0, 0, null, 1, $now, $now, $lease))
+            || $this->store->takeRun($row->id, $slot, $now, $stale, $lease));
         if (!$taken) {
             $logger->info('nowo_report_kit: slot {slot} of subscription {id} is already handled; nothing sent.', ['id' => $row->id, 'slot' => $message->slotAt]);
 
             return new RunResult(null, RunResult::DUPLICATE);
         }
 
-        // Read the row again now that this attempt holds the slot: a pause decided while the slot was being taken wins.
-        $row        = $this->store->find($id->value) ?? $row;
+        // Read the row again now that this attempt holds the slot: a pause or delete decided meanwhile wins.
+        $fresh = $this->store->find($id->value);
+        if (!$fresh instanceof Subscription) {
+            return $this->finish($row, $slot, $message, $lease, RunStatus::Skipped, self::SUBSCRIPTION_DELETED, null, [], 0, $started);
+        }
+        $row        = $fresh;
         $handedOver = false;
         try {
-            return $this->attempt($row, $slot, $message, $started, $handedOver);
+            return $this->attempt($row, $slot, $message, $lease, $started, $handedOver);
         } catch (Throwable $failure) {
             if ($handedOver) {
                 // The mail left: never mark the slot as retryable. A redelivery finds it `sending` and stops.
@@ -164,33 +171,33 @@ final readonly class ScheduledReportRunner
                 throw $failure;
             }
 
-            return $this->failed($row, $slot, $message, $failure, $started);
+            return $this->failed($row, $slot, $message, $lease, $failure, $started);
         }
     }
 
     /**
      * Steps 2 to 5; `$handedOver` turns true once the mailer returned.
      */
-    private function attempt(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, int $started, bool &$handedOver): RunResult
+    private function attempt(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, string $lease, int $started, bool &$handedOver): RunResult
     {
         if (!$row->enabled) {
-            return $this->finish($row, $slot, $message, RunStatus::Skipped, self::PAUSED_MEANTIME, null, [], 0, $started);
+            return $this->finish($row, $slot, $message, $lease, RunStatus::Skipped, self::PAUSED_MEANTIME, null, [], 0, $started);
         }
         try {
             $owner = SubscriptionMapper::owner($row);
         } catch (InvalidReportArgumentException) {
-            return $this->finish($row, $slot, $message, RunStatus::Paused, PauseReason::OwnerInactive->value, PauseReason::OwnerInactive, [], 0, $started);
+            return $this->finish($row, $slot, $message, $lease, RunStatus::Paused, PauseReason::OwnerInactive->value, PauseReason::OwnerInactive, [], 0, $started);
         }
         if (!$this->types->get($row->reportType) instanceof ReportTypeInterface) {
-            return $this->pause($row, $slot, $message, PauseReason::TypeRemoved, $started);
+            return $this->pause($row, $slot, $message, $lease, PauseReason::TypeRemoved, $started);
         }
         $user  = $this->directory->userOf($owner);
         $email = $user === null ? null : $this->directory->email($owner);
         if ($user === null || !$this->directory->isActive($owner) || !$this->sameOwner($owner, $user) || !is_string($email) || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            return $this->pause($row, $slot, $message, PauseReason::OwnerInactive, $started);
+            return $this->pause($row, $slot, $message, $lease, PauseReason::OwnerInactive, $started);
         }
         if (!$this->mailer->isReady()) {
-            return $this->finish($row, $slot, $message, RunStatus::Skipped, self::MAIL_NOT_READY, null, [], 0, $started);
+            return $this->finish($row, $slot, $message, $lease, RunStatus::Skipped, self::MAIL_NOT_READY, null, [], 0, $started);
         }
         $parameters = SubscriptionMapper::parameters($row);
         $locale     = $this->locale($this->directory->locale($owner));
@@ -214,13 +221,29 @@ final readonly class ScheduledReportRunner
             return $this->mail($row, $owner, $email, $locale, $report, SubscriptionMapper::raw($prepared->request->parameters), $slot);
         });
         if ($built instanceof PauseReason) {
-            return $this->pause($row, $slot, $message, $built, $started);
+            return $this->pause($row, $slot, $message, $lease, $built, $started);
         }
 
-        $sending = $this->store->transactional(fn (): bool => $this->store->updateRun($row->id, $slot, ['status' => ReportRun::SENDING], ReportRun::RUNNING));
-        if (!$sending) {
-            // Another worker took the lease over meanwhile (this attempt outlived schedule.stale_claim_minutes).
+        // The subscription row is locked while the slot moves to `sending`: a pause or delete committed during the build
+        // stops the mail (audit ZAD-I1); an attempt whose lease was taken over (it outlived schedule.stale_claim_minutes)
+        // stops too (audit ZAD-L1).
+        // @igor-ignore - Closure passed to one transactional() call and released when it returns; never stored.
+        $state = $this->store->transactional(function () use ($row, $slot, $lease): string {
+            $current = $this->store->find($row->id, true);
+            if (!$current instanceof Subscription) {
+                return self::SUBSCRIPTION_DELETED;
+            }
+            if (!$current->enabled) {
+                return self::PAUSED_MEANTIME;
+            }
+
+            return $this->store->updateRun($row->id, $slot, ['status' => ReportRun::SENDING], [ReportRun::RUNNING], $lease) ? ReportRun::SENDING : RunResult::DUPLICATE;
+        });
+        if ($state === RunResult::DUPLICATE) {
             return new RunResult(null, RunResult::DUPLICATE);
+        }
+        if ($state !== ReportRun::SENDING) {
+            return $this->finish($row, $slot, $message, $lease, RunStatus::Skipped, $state, null, [], 0, $started);
         }
         try {
             $this->inLocale($locale, function () use ($built): void {
@@ -241,7 +264,7 @@ final readonly class ScheduledReportRunner
             }
         }
 
-        return $this->finish($row, $slot, $message, RunStatus::Sent, null, null, $formats, $bytes, $started);
+        return $this->finish($row, $slot, $message, $lease, RunStatus::Sent, null, null, $formats, $bytes, $started);
     }
 
     /**
@@ -308,9 +331,9 @@ final readonly class ScheduledReportRunner
         return false;
     }
 
-    private function pause(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, PauseReason $reason, int $started): RunResult
+    private function pause(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, string $lease, PauseReason $reason, int $started): RunResult
     {
-        return $this->finish($row, $slot, $message, RunStatus::Paused, $reason->value, $reason, [], 0, $started);
+        return $this->finish($row, $slot, $message, $lease, RunStatus::Paused, $reason->value, $reason, [], 0, $started);
     }
 
     /**
@@ -318,13 +341,17 @@ final readonly class ScheduledReportRunner
      *
      * @param list<string> $formats
      */
-    private function finish(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, RunStatus $status, ?string $code, ?PauseReason $reason, array $formats, int $bytes, int $started): RunResult
+    private function finish(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, string $lease, RunStatus $status, ?string $code, ?PauseReason $reason, array $formats, int $bytes, int $started): RunResult
     {
         $now = $this->clock->now();
         // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
-        $this->store->transactional(function () use ($row, $slot, $message, $status, $code, $reason, $formats, $bytes, $started, $now): bool {
+        $paused = $this->store->transactional(function () use ($row, $slot, $message, $lease, $status, $code, $reason, $formats, $bytes, $started, $now): ?bool {
             $current = $this->store->find($row->id, true);
-            $paused  = false;
+            // Only this attempt's run row, and only while it is still open (audit ZAD-L1): a superseded attempt writes nothing.
+            if (!$this->store->updateRun($row->id, $slot, ['status' => $status->value, 'formats' => $formats, 'bytes' => $bytes, 'duration_ms' => $this->ms($started), 'error_code' => $code, 'lease_at' => null], [ReportRun::RUNNING, ReportRun::SENDING], $lease)) {
+                return null;
+            }
+            $paused = false;
             if ($current instanceof Subscription) {
                 $values = ['last_run_at' => $now, 'last_status' => $status->value, 'last_error_code' => $code];
                 if ($status === RunStatus::Sent) {
@@ -337,23 +364,27 @@ final readonly class ScheduledReportRunner
                 }
                 $this->store->update($current->id, $values + $this->releaseClaim($current, $message), $now);
             }
-            $this->store->updateRun($row->id, $slot, ['status' => $status->value, 'formats' => $formats, 'bytes' => $bytes, 'duration_ms' => $this->ms($started), 'error_code' => $code, 'lease_at' => null]);
 
             return $paused;
-        }, function (bool $paused) use ($row, $slot, $status, $reason, $formats, $bytes): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
+        }, function (?bool $paused) use ($row, $slot, $status, $reason, $formats, $bytes): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
             $owner = new OwnerRef($row->ownerType, $row->ownerId);
             $id    = new SubscriptionId($row->id);
-            if ($status === RunStatus::Sent) {
+            if ($paused !== null && $status === RunStatus::Sent) {
                 $list = [];
                 foreach ($formats as $format) {
                     $list[] = ReportFormat::from($format);
                 }
                 $this->events?->dispatch(new ScheduledReportSentEvent($id, $owner, $slot, $list, $bytes), ReportKitEvents::SCHEDULED_REPORT_SENT);
             }
-            if ($paused && $reason instanceof PauseReason) {
+            if ($paused === true && $reason instanceof PauseReason) {
                 $this->pausedEvents($id, $owner, $row->reportType, $reason);
             }
         });
+        if ($paused === null) {
+            ($this->logger ?? new NullLogger())->warning('nowo_report_kit: subscription {id} slot {slot}: this attempt lost its lease; its outcome is not recorded.', ['id' => $row->id, 'slot' => $message->slotAt]);
+
+            return new RunResult(null, RunResult::DUPLICATE);
+        }
         ($this->logger ?? new NullLogger())->info('nowo_report_kit: subscription {id} slot {slot}: {status}{code}.', ['id' => $row->id, 'slot' => $message->slotAt, 'status' => $status->value, 'code' => $code === null ? '' : ' (' . $code . ')']);
 
         return new RunResult($status, $code, $reason);
@@ -365,7 +396,7 @@ final readonly class ScheduledReportRunner
      *
      * @throws Throwable
      */
-    private function failed(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, Throwable $failure, int $started): RunResult
+    private function failed(Subscription $row, DateTimeImmutable $slot, RunScheduledReportMessage $message, string $lease, Throwable $failure, int $started): RunResult
     {
         $cause = $failure instanceof MailHandOverFailure ? $failure->getPrevious() ?? $failure : $failure;
         $code  = match (true) {
@@ -374,11 +405,17 @@ final readonly class ScheduledReportRunner
             default                                          => self::RUN_FAILED,
         };
         $now = $this->clock->now();
+        // A hand-over failure leaves this attempt's own `sending` row (the mailer threw: nothing was handed over); any
+        // other failure happens while the row is `running`. Never another attempt's row (audit ZAD-L1).
+        $open = $failure instanceof MailHandOverFailure ? [ReportRun::SENDING] : [ReportRun::RUNNING];
         // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
-        $outcome = $this->store->transactional(function () use ($row, $slot, $message, $code, $started, $now): array {
+        $outcome = $this->store->transactional(function () use ($row, $slot, $message, $lease, $open, $code, $started, $now): ?array {
             $current  = $this->store->find($row->id, true);
             $failures = ($current instanceof Subscription ? $current->consecutiveFailures : $row->consecutiveFailures) + 1;
             $pause    = $current instanceof Subscription && $current->enabled && $failures >= $this->maxFailures;
+            if (!$this->store->updateRun($row->id, $slot, ['status' => ($pause ? RunStatus::Paused : RunStatus::Failed)->value, 'duration_ms' => $this->ms($started), 'error_code' => $code, 'lease_at' => null], $open, $lease)) {
+                return null;
+            }
             if ($current instanceof Subscription) {
                 $values = ['last_run_at' => $now, 'last_status' => ($pause ? RunStatus::Paused : RunStatus::Failed)->value, 'last_error_code' => $code, 'consecutive_failures' => $failures];
                 if ($pause) {
@@ -387,10 +424,12 @@ final readonly class ScheduledReportRunner
                 }
                 $this->store->update($current->id, $values + $this->releaseClaim($current, $message), $now);
             }
-            $this->store->updateRun($row->id, $slot, ['status' => ($pause ? RunStatus::Paused : RunStatus::Failed)->value, 'duration_ms' => $this->ms($started), 'error_code' => $code, 'lease_at' => null]);
 
             return [$failures, $pause];
-        }, function (array $outcome) use ($row, $slot, $code): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
+        }, function (?array $outcome) use ($row, $slot, $code): void { // @igor-ignore - Closure passed to one transactional() call (after-commit work held at most until the commit or the request boundary, then dropped); never stored.
+            if ($outcome === null) {
+                return;
+            }
             [$failures, $pause] = $outcome;
             $id                 = new SubscriptionId($row->id);
             $this->events?->dispatch(new ScheduledReportFailedEvent($id, $slot, $code, $failures), ReportKitEvents::SCHEDULED_REPORT_FAILED);
@@ -398,6 +437,12 @@ final readonly class ScheduledReportRunner
                 $this->pausedEvents($id, new OwnerRef($row->ownerType, $row->ownerId), $row->reportType, PauseReason::RepeatedFailure);
             }
         });
+        if ($outcome === null) {
+            // A newer attempt holds the slot: this late failure is not recorded and not retried (no second mail).
+            ($this->logger ?? new NullLogger())->warning('nowo_report_kit: subscription {id} slot {slot} failed after its lease was taken over ({class}); not recorded, not retried.', ['id' => $row->id, 'slot' => $message->slotAt, 'class' => $cause::class]);
+
+            return new RunResult(null, RunResult::DUPLICATE);
+        }
         [$failures, $pause] = $outcome;
         ($this->logger ?? new NullLogger())->error('nowo_report_kit: subscription {id} slot {slot} failed ({code}, {failures} in a row): {class}', [
             'id'        => $row->id,

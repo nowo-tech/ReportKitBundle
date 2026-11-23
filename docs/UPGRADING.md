@@ -19,6 +19,14 @@ New required packages: `doctrine/dbal` ^3.9 || ^4, `doctrine/orm` ^3.3 (mapping 
 `psr/log`, `symfony/console`, `symfony/uid`. Suggested: `symfony/mailer`, `symfony/messenger`, `symfony/scheduler` +
 `dragonmantank/cron-expression`, `nowo-tech/mail-kit-bundle`, `nowo-tech/migrations-kit-bundle`.
 
+> **Before deploying 0.3.0 (audit ZAD-I7):** if your host already sets `owner.class` or `owner.directory` and runs
+> DoctrineBundle, the subscriptions turn **on** with the default `subscriptions.enabled: auto`: the *Schedule by
+> e-mail* action and the subscriptions table appear, and the report list reads the new tables. **Run the migration
+> for the three new tables first, or set `subscriptions.enabled: false`.** Nothing is mailed until you turn on
+> `schedule.enabled` (or call `nowo:report-kit:dispatch-due`), and mails go only to each owner. Report data then leaves
+> the application by e-mail (attachments): review your data-protection assessment (DPIA) for sensitive reports, and
+> erase owners with `forgetOwner()` / `nowo:report-kit:forget-owner` when you delete a person (see SECURITY.md).
+
 - **`subscriptions.enabled` is now `true | false | "auto"` (default `auto`).** `auto` turns the subscriptions on only
   when DoctrineBundle is registered **and** an owner directory is configured (`owner.directory`, or `owner.class` for
   the Doctrine directory). A 0.2 host with neither keeps working unchanged. `true` without DoctrineBundle or a
@@ -28,7 +36,7 @@ New required packages: `doctrine/dbal` ^3.9 || ^4, `doctrine/orm` ^3.3 (mapping 
   `conflict_response.retry_after` (1). The container parameter `nowo_report_kit.subscriptions` says whether they are on.
 - **Schema (additive, three new tables)** when the subscriptions are on. Create them with your migration tool (the
   mapping is prepended on `doctrine.entity_manager` on standard hosts): `<prefix>report_subscription`,
-  `<prefix>report_run` (unique `(subscription_id, slot_at)`), `<prefix>report_owner_lock`. On MySQL / MariaDB the
+  `<prefix>report_run` (unique `(subscription_id, slot_at)`, with the run lease token `lease_token`), `<prefix>report_owner_lock`. On MySQL / MariaDB the
   identifier columns use `utf8mb4_0900_bin` / `utf8mb4_nopad_bin` (set `doctrine.dbal.server_version` with the full
   version); nothing to convert, the tables are new. A DDD host with `doctrine.auto_mapping: false` registers
   `src/Resources/config/doctrine` (type `xml`, prefix `Nowo\ReportKitBundle\Domain`) on its entity manager.

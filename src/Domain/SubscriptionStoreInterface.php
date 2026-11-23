@@ -95,9 +95,10 @@ interface SubscriptionStoreInterface
 
     /**
      * Takes the lease of an existing run row of a slot that a failed or stale attempt left (status `running` with
-     * no lease or a lease older than `$stale`, or `failed`). Exactly one caller wins.
+     * no lease or a lease older than `$stale`, or `failed`; never `sending` or a final status) for the attempt
+     * `$lease`. Exactly one caller wins.
      */
-    public function takeRun(string $subscriptionId, DateTimeImmutable $slot, DateTimeImmutable $now, DateTimeImmutable $stale): bool;
+    public function takeRun(string $subscriptionId, DateTimeImmutable $slot, DateTimeImmutable $now, DateTimeImmutable $stale, string $lease): bool;
 
     /**
      * The run row of a slot.
@@ -108,9 +109,18 @@ interface SubscriptionStoreInterface
      * Updates the run row of a slot.
      *
      * @param array<string, mixed> $values column => PHP value
-     * @param string|null $whereStatus only while the row has this status
+     * @param list<string> $whereStatuses only while the row has one of these statuses (empty = any)
+     * @param string|null $lease only while the attempt `$lease` holds the row
      */
-    public function updateRun(string $subscriptionId, DateTimeImmutable $slot, array $values, ?string $whereStatus = null): bool;
+    public function updateRun(string $subscriptionId, DateTimeImmutable $slot, array $values, array $whereStatuses = [], ?string $lease = null): bool;
+
+    /**
+     * Erases an owner (audit ZAD-L2): the owner's subscriptions, run rows and lock row, matched exactly (selected,
+     * re-checked with `===`, deleted by primary key), inside {@see self::transactional()}.
+     *
+     * @return array{subscriptions: int, runs: int}
+     */
+    public function forgetOwner(OwnerRef $owner): array;
 
     /**
      * Ids of run rows created before `$before`, by id, after the keyset cursor.

@@ -55,8 +55,8 @@ final readonly class ReportKitMetadataListener
         SubscriptionOwnerLockRecord::class => self::LOCK_TABLE,
     ];
 
-    /** Identifier columns: ids, owner references, the type key and the claim token. */
-    public const ID_COLUMNS = ['id', 'owner_type', 'owner_id', 'report_type', 'subscription_id', 'claim_token'];
+    /** Identifier columns: ids, owner references, the type key, the claim token and the run lease token. */
+    public const ID_COLUMNS = ['id', 'owner_type', 'owner_id', 'report_type', 'subscription_id', 'claim_token', 'lease_token'];
 
     /**
      * The binary NO PAD collation of the platform: MariaDB `utf8mb4_nopad_bin`, MySQL 8 `utf8mb4_0900_bin`, else the

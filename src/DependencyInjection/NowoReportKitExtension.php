@@ -40,6 +40,7 @@ use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
 use Nowo\ReportKitBundle\Infrastructure\Cache\PermissionCheckerWarmer;
 use Nowo\ReportKitBundle\Infrastructure\Collation\ReportKitExactKeyColumns;
 use Nowo\ReportKitBundle\Infrastructure\Console\DispatchDueCommand;
+use Nowo\ReportKitBundle\Infrastructure\Console\ForgetOwnerCommand;
 use Nowo\ReportKitBundle\Infrastructure\Console\PruneRunsCommand;
 use Nowo\ReportKitBundle\Infrastructure\Csv\BuiltInCsvCellGuard;
 use Nowo\ReportKitBundle\Infrastructure\Csv\ControllerKitCsvCellGuard;
@@ -555,6 +556,7 @@ final class NowoReportKitExtension extends Extension implements PrependExtension
             '%router.request_context.base_url%',
             '%router.request_context.host%',
             '%router.request_context.scheme%',
+            $logger,
         ]);
         $container->register('nowo_report_kit.runner', ScheduledReportRunner::class)->setArguments([
             $store,
@@ -587,6 +589,9 @@ final class NowoReportKitExtension extends Extension implements PrependExtension
         $container->register(DispatchDueCommand::class, DispatchDueCommand::class)
             ->setAutoconfigured(true)
             ->setArguments([new Reference('nowo_report_kit.dispatcher'), new Reference('nowo_report_kit.runner'), $messenger ? $bus : null]);
+        $container->register(ForgetOwnerCommand::class, ForgetOwnerCommand::class)
+            ->setAutoconfigured(true)
+            ->setArguments([new Reference(SubscriptionsInterface::class)]);
         $container->register(PruneRunsCommand::class, PruneRunsCommand::class)
             ->setAutoconfigured(true)
             ->setArguments([new Reference('nowo_report_kit.retention')]);

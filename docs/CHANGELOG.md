@@ -46,6 +46,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
     ([CONCURRENCY.md](CONCURRENCY.md)).
   - REQ-SEC-006: binary NO PAD collation of the identifier columns (`utf8mb4_0900_bin` / `utf8mb4_nopad_bin`), `===`
     re-checks of every owner- and id-keyed read, `ReportKitExactKeyColumns` (tag `nowo_migrations_kit.exact_key_columns`).
+  - Owner erasure (audit ZAD-L2): `SubscriptionsInterface::forgetOwner()` and `nowo:report-kit:forget-owner` delete an
+    owner's subscriptions, run rows and lock row (exact match). Call it when a person is deleted until the S4 eraser.
+  - A warning is logged when the mail links resolve to a local host (set `links.base_url` or `default_uri`, ZAD-I6).
   - Configuration: `mail.mailer`, `mail.from`, `concurrency.*`, `conflict_response.*`; container parameter
     `nowo_report_kit.subscriptions`. Translations in the seven locales.
   - Demo: Doctrine on MySQL, a people directory, the schedule dialog, a "run the due reports now" demo button and the
@@ -53,6 +56,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Upgrade note (ZAD-I7):** with `owner.class` / `owner.directory` and DoctrineBundle, `subscriptions.enabled: auto`
+  turns the subscriptions on after `composer update`: run the migration for the three tables first, or set it to
+  `false`. Scheduled reports send report data by e-mail: review your DPIA. See UPGRADING.
 - `subscriptions.enabled` accepts `true | false | "auto"` and defaults to `auto` (on with DoctrineBundle and an owner
   directory); `true` without them refuses to build.
 - New required packages: `doctrine/dbal`, `doctrine/orm` (mapping only), `doctrine/persistence`,
@@ -64,7 +70,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Scheduled runs never reuse an access decision: zero contexts on a real scope resolver fail closed at run time as on
   the pages (audit ZY-M1), a subscribed context that is no longer accessible pauses instead of widening, the mail goes
   only to the directory's current address of exactly that owner, and the runner refuses to run inside a transaction
-  (the mail would leave before the commit). Immediate REQ-SEC-004 audit due before 0.3.0.
+  (the mail would leave before the commit). Audit ZAD fixes: a run slot is held by one attempt at a time (lease
+  token): a superseded attempt can no longer reopen a sent slot and cause a second mail (ZAD-L1); a pause or delete
+  during the build stops the mail (ZAD-I1); owners can be erased and owner ids should not be reusable (ZAD-L2).
 
 ## [0.2.0] - 2026-11-23
 

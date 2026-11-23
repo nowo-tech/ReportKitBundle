@@ -29,8 +29,16 @@ S1, the page access since S2, the scheduled path since S3.
   `links.base_url` / the router's `default_uri` on a fresh generator, never from a request Host (REQ-AUTH-011);
   attachments over `mail.max_attachment_bytes` are dropped and the mail carries the link, which needs a sign-in; the
   mail body carries the title, filters line, summary and glance only. The template escapes every value.
-- **No double mail.** The run row `(subscription_id, slot_at)` is unique; the row goes to `sending` before the mailer is
-  called and a `sending` row is never taken again (at most once per slot). An unready mailer skips and keeps the
+- **No double mail.** The run row `(subscription_id, slot_at)` is unique and carries the lease token of the attempt
+  that holds it; only that attempt may move it to `sending` or close it, the row goes to `sending` before the mailer is
+  called and a `sending` row is never taken again (at most once per slot, audit ZAD-L1). A pause or delete committed
+  while the report is built stops the mail (the subscription is locked at the hand-over, audit ZAD-I1).
+- **Erasure and owner ids (audit ZAD-L2).** `SubscriptionsInterface::forgetOwner()` (or `bin/console
+  nowo:report-kit:forget-owner <type> <id>`) deletes the owner's subscriptions, run rows and lock row (exact match).
+  Until the UserKit eraser of S4 calls it, **call it when you delete or anonymise a person**. Use a **non-reusable**
+  `owner.id_field` (UUID, numeric id): with a reusable one (e-mail, username) a new account that takes the value would
+  otherwise see and receive the old owner's subscriptions (built with the new account's access, but showing the old
+  owner's stored filters). An unready mailer skips and keeps the
   schedule (Q-O9).
 - **Subscriptions are the owner's only.** Lookups by id **and** owner, re-checked with `===` in PHP after SQL (another
   owner's id, `UserA` vs `usera`, `alice ` → 404); CSRF on every POST (FormKit; token id per subscription and action,

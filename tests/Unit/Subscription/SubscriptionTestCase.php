@@ -27,6 +27,7 @@ use Nowo\ReportKitBundle\Contract\ReportScopeResolverInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeInterface;
 use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Contract\SubscriptionView;
+use Nowo\ReportKitBundle\Domain\SubscriptionStoreInterface;
 use Nowo\ReportKitBundle\Infrastructure\Persistence\AfterCommitQueue;
 use Nowo\ReportKitBundle\Infrastructure\Persistence\DbalSubscriptionStore;
 use Nowo\ReportKitBundle\Tests\Fixtures\OrdersReportType;
@@ -60,7 +61,7 @@ abstract class SubscriptionTestCase extends TestCase
 
     protected Connection $connection;
 
-    protected DbalSubscriptionStore $store;
+    protected SubscriptionStoreInterface $store;
 
     protected MockClock $clock;
 
