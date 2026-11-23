@@ -10,6 +10,7 @@ use Nowo\ReportKitBundle\Contract\ContextRef;
 use Nowo\ReportKitBundle\Contract\Event\ReportExportedEvent;
 use Nowo\ReportKitBundle\Contract\Event\ReportKitEvents;
 use Nowo\ReportKitBundle\Contract\Exception\FormatNotEnabledException;
+use Nowo\ReportKitBundle\Contract\Exception\InvalidReportArgumentException;
 use Nowo\ReportKitBundle\Contract\Exception\ReportAccessDeniedException;
 use Nowo\ReportKitBundle\Contract\Exception\ReportLimitExceededException;
 use Nowo\ReportKitBundle\Contract\Exception\UnknownReportTypeException;
@@ -52,8 +53,9 @@ use function is_string;
 /**
  * The report pages (contract §7.1, §8): the list of the types the viewer may open, the report page (sections from
  * the PDF view model, filter form, Export menu) and the export routes. Every action goes through the
- * {@see ReportKitGuard} first; the report page and the exports through their rate limits before any build. Unknown
- * type → 404, refused type → 403, limit → 429. Stateless.
+ * {@see ReportKitGuard} first; the list and the report page through the views rate limit, the exports through theirs,
+ * before any build. Unknown type → 404, refused type → 403, rate limit → 429, a type over a limit → 503. HTML pages
+ * are `no-store, private` like the files. Stateless.
  *
  * @internal
  */
@@ -95,7 +97,8 @@ final readonly class ReportController
     public function index(): Response
     {
         $viewer = $this->guard->viewer();
-        $rows   = [];
+        $this->limits->view($viewer->owner);
+        $rows = [];
         foreach ($this->builder->available($viewer->owner, $viewer->user) as $key => $type) {
             $domain = $type->translationDomain() ?? 'messages';
             $rows[] = [
@@ -129,7 +132,7 @@ final readonly class ReportController
         $viewer = $this->guard->viewer();
         $this->limits->view($viewer->owner);
         $prepared = $this->prepare($type, $viewer, $request);
-        $report   = $prepared->type->build($prepared->request);
+        $report   = $this->build($prepared);
         $query    = $this->query($prepared);
         $actions  = [];
         foreach ($this->exporter->formats() as $format) {
@@ -167,7 +170,7 @@ final readonly class ReportController
         }
         $this->limits->export($viewer->owner);
         $prepared = $this->prepare($type, $viewer, $request);
-        $report   = $prepared->type->build($prepared->request);
+        $report   = $this->build($prepared);
         try {
             $rendered = $this->exporter->export($report, $file);
         } catch (FormatNotEnabledException $e) {
@@ -195,7 +198,23 @@ final readonly class ReportController
      */
     private function render(string $template, array $context): Response
     {
-        return new Response($this->twig->render($template, $context));
+        $response = new Response($this->twig->render($template, $context));
+        // The page carries the same figures as the files (audit ZY-I3).
+        $response->headers->set('Cache-Control', 'no-store, private');
+
+        return $response;
+    }
+
+    /**
+     * The type's build; a type over one of its limits (or refusing its own arguments) answers 503, not 500 (audit ZY-L3).
+     */
+    private function build(PreparedReport $prepared): Report
+    {
+        try {
+            return $prepared->type->build($prepared->request);
+        } catch (ReportLimitExceededException|InvalidReportArgumentException $e) {
+            throw new ServiceUnavailableHttpException(null, 'The report cannot be built now.', $e);
+        }
     }
 
     private function prepare(string $type, Viewer $viewer, Request $request): PreparedReport

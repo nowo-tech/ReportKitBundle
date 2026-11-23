@@ -8,7 +8,8 @@ namespace Nowo\ReportKitBundle\Contract;
  * Host SPI (contract §4.3): the contexts (projects, teams, accounts…) a person may report on for one report type.
  * Called per build, with the current access, and never memoised by the bundle. The default
  * (`NoContextScopeResolver`) returns none: types run without a context (personal or instance-wide data) and a type
- * whose schema requires a context is not available.
+ * whose schema requires a context is not available. A custom resolver that returns none for a person refuses that
+ * person every type that takes contexts, unless explicitly granted ({@see ReportRequest::$contextFreeGrant}).
  *
  * At most {@see self::MAX_CONTEXTS} choices: a longer list refuses the build rather than truncating the scope.
  */

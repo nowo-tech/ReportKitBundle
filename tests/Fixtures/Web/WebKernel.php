@@ -99,10 +99,11 @@ final class WebKernel extends Kernel
             $container->extension('security', [
                 'password_hashers' => ['Symfony\Component\Security\Core\User\InMemoryUser' => 'plaintext'],
                 'providers'        => ['users' => ['memory' => ['users' => [
-                    'alice' => ['password' => 'pw', 'roles' => ['ROLE_USER']],
-                    'bob'   => ['password' => 'pw', 'roles' => ['ROLE_USER']],
-                    'carol' => ['password' => 'pw', 'roles' => ['ROLE_GUEST']],
-                    'root'  => ['password' => 'pw', 'roles' => ['ROLE_USER']],
+                    'alice'  => ['password' => 'pw', 'roles' => ['ROLE_USER']],
+                    'bob'    => ['password' => 'pw', 'roles' => ['ROLE_USER']],
+                    'carol'  => ['password' => 'pw', 'roles' => ['ROLE_GUEST']],
+                    'root'   => ['password' => 'pw', 'roles' => ['ROLE_USER']],
+                    'newbie' => ['password' => 'pw', 'roles' => ['ROLE_USER']],
                 ]]]],
                 'firewalls' => ['main' => ['stateless' => true, 'http_basic' => null, 'provider' => 'users']],
             ]);

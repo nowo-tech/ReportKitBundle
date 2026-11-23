@@ -8,11 +8,14 @@ use DateTimeImmutable;
 use Nowo\ReportKitBundle\Application\Brand\DefaultReportBrandResolver;
 use Nowo\ReportKitBundle\Application\Export\RenderLimits;
 use Nowo\ReportKitBundle\Application\Owner\PropertyOwnerResolver;
+use Nowo\ReportKitBundle\Contract\AbstractReportType;
 use Nowo\ReportKitBundle\Contract\Exception\FormatNotEnabledException;
+use Nowo\ReportKitBundle\Contract\Exception\InvalidReportArgumentException;
 use Nowo\ReportKitBundle\Contract\Exception\ReportLimitExceededException;
 use Nowo\ReportKitBundle\Contract\OwnerRef;
 use Nowo\ReportKitBundle\Contract\PreparedReport;
 use Nowo\ReportKitBundle\Contract\RenderedFile;
+use Nowo\ReportKitBundle\Contract\Report;
 use Nowo\ReportKitBundle\Contract\ReportBuilderInterface;
 use Nowo\ReportKitBundle\Contract\ReportExporterInterface;
 use Nowo\ReportKitBundle\Contract\ReportFormat;
@@ -41,6 +44,7 @@ use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\User\InMemoryUser;
 use Symfony\Component\Translation\Translator;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Throwable;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
@@ -109,6 +113,21 @@ final class PagesSupportTest extends TestCase
         }
     }
 
+    public function testATypeOverItsLimitsAnswers503ZyL3(): void
+    {
+        foreach ([new ReportLimitExceededException(ReportLimitExceededException::SCOPE_CONTEXTS, 5000), new InvalidReportArgumentException('bad')] as $error) {
+            foreach (['show', 'export'] as $action) {
+                try {
+                    $controller = $this->controller(null, null, $error);
+                    $action === 'show' ? $controller->show(new Request(), 'failing') : $controller->export(new Request(), 'failing', 'csv');
+                    self::fail($action);
+                } catch (ServiceUnavailableHttpException $e) {
+                    self::assertSame($error, $e->getPrevious());
+                }
+            }
+        }
+    }
+
     private function area(bool $grant): ReportKitAccessCheckerInterface
     {
         $area = $this->createMock(ReportKitAccessCheckerInterface::class);
@@ -125,12 +144,27 @@ final class PagesSupportTest extends TestCase
         return $tokens;
     }
 
-    private function controller(?Throwable $prepareError, ?Throwable $exportError): ReportController
+    private function controller(?Throwable $prepareError, ?Throwable $exportError, ?Throwable $buildError = null): ReportController
     {
         $translator = new Translator('en');
-        $type       = new PersonalReportType($translator);
-        $builder    = $this->createMock(ReportBuilderInterface::class);
-        $prepare    = $builder->method('prepare');
+        $type       = $buildError instanceof Throwable ? new class($translator, $buildError) extends AbstractReportType {
+            public function __construct(TranslatorInterface $translator, private readonly Throwable $error)
+            {
+                parent::__construct($translator);
+            }
+
+            public function key(): string
+            {
+                return 'failing';
+            }
+
+            public function build(ReportRequest $request): Report
+            {
+                throw $this->error;
+            }
+        } : new PersonalReportType($translator);
+        $builder = $this->createMock(ReportBuilderInterface::class);
+        $prepare = $builder->method('prepare');
         if ($prepareError instanceof Throwable) {
             $prepare->willThrowException($prepareError);
         } else {

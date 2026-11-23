@@ -6,6 +6,7 @@ namespace Nowo\ReportKitBundle\Application;
 
 use DateTimeZone;
 use LogicException;
+use Nowo\ReportKitBundle\Application\Scope\NoContextScopeResolver;
 use Nowo\ReportKitBundle\Contract\ContextChoice;
 use Nowo\ReportKitBundle\Contract\ContextRef;
 use Nowo\ReportKitBundle\Contract\Event\ReportAccessCheckEvent;
@@ -26,6 +27,7 @@ use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
+use function array_flip;
 use function array_values;
 use function count;
 use function get_debug_type;
@@ -39,7 +41,10 @@ use function sprintf;
  * parameters → type. The scope resolver's contexts are the ceiling: the checker's answer is intersected with them
  * (exact keys) and a listener's grant opens them, never more. An unknown or unreadable context in the raw parameters
  * falls back to "all accessible" (never an error that reveals whether it exists); a type that requires a context
- * falls back to the first accessible one. Stateless: every call reads the current access.
+ * falls back to the first accessible one. Fail closed (audit ZY-M1): when a real scope resolver (not
+ * {@see NoContextScopeResolver}) returns no context for a type that takes contexts, the type is refused
+ * (`NO_CONTEXT`), with or without a permission, unless `allowsWithoutContext()` or a listener's `grant()` opens it;
+ * that build carries {@see ReportRequest::$contextFreeGrant}. Stateless: every call reads the current access.
  */
 final readonly class ReportBuilder implements ReportBuilderInterface
 {
@@ -75,6 +80,8 @@ final readonly class ReportBuilder implements ReportBuilderInterface
                 $available[$key] = $type;
             } catch (ReportAccessDeniedException) {
                 // Not listed: the list shows only what the viewer may open.
+            } catch (ReportLimitExceededException) {
+                // Not listed (audit ZY-L2): a scope over the ceiling refuses the build, so the list cannot open it either.
             }
         }
 
@@ -86,9 +93,9 @@ final readonly class ReportBuilder implements ReportBuilderInterface
      */
     public function prepare(string $type, OwnerRef $owner, object $user, array $rawParameters, bool $scheduled = false, ?string $locale = null, ?string $timezone = null): PreparedReport
     {
-        $reportType = $this->types->get($type) ?? throw new UnknownReportTypeException($type);
-        $choices    = $this->narrow($reportType, $owner, $user, $scheduled);
-        $accessible = [];
+        $reportType                   = $this->types->get($type) ?? throw new UnknownReportTypeException($type);
+        [$choices, $contextFreeGrant] = $this->narrow($reportType, $owner, $user, $scheduled);
+        $accessible                   = [];
         foreach ($choices as $choice) {
             $accessible[] = $choice->ref;
         }
@@ -115,6 +122,7 @@ final readonly class ReportBuilder implements ReportBuilderInterface
             $this->clock->now(),
             $scheduled,
             $label,
+            $contextFreeGrant,
         ), $choices);
     }
 
@@ -129,9 +137,11 @@ final readonly class ReportBuilder implements ReportBuilderInterface
     }
 
     /**
-     * The context choices that grant the type to this person (empty = a context-free build is allowed).
+     * The context choices that grant the type to this person (empty = a context-free build is allowed), and whether
+     * that context-free build was opened explicitly although the type takes contexts and a real scope resolver
+     * returned none ({@see ReportRequest::$contextFreeGrant}).
      *
-     * @return list<ContextChoice>
+     * @return array{list<ContextChoice>, bool}
      */
     private function narrow(ReportTypeInterface $type, OwnerRef $owner, object $user, bool $scheduled): array
     {
@@ -142,13 +152,15 @@ final readonly class ReportBuilder implements ReportBuilderInterface
         foreach ($choices as $choice) {
             $scope[] = $choice->ref;
         }
+        // The person has no context although the type takes contexts and the host has them (audit ZY-M1).
+        $noContexts = $scope === [] && $schema->context && !$this->scope instanceof NoContextScopeResolver;
         $permission = $type->permission();
-        if ($permission === null) {
-            $allowed     = $scope;
-            $contextFree = true;
-        } elseif ($scope === []) {
+        if ($scope === [] && ($permission !== null || $noContexts)) {
             $allowed     = [];
             $contextFree = $this->access->allowsWithoutContext($owner, $user, $key);
+        } elseif ($permission === null) {
+            $allowed     = $scope;
+            $contextFree = true;
         } else {
             $allowed     = $this->intersect($scope, $this->access->allows($owner, $user, $key, $scope));
             $contextFree = false;
@@ -167,20 +179,21 @@ final readonly class ReportBuilder implements ReportBuilderInterface
         }
 
         if ($scope !== [] ? $allowed === [] : !$contextFree) {
-            throw new ReportAccessDeniedException(ReportAccessDeniedException::NO_PERMISSION);
+            throw new ReportAccessDeniedException($noContexts ? ReportAccessDeniedException::NO_CONTEXT : ReportAccessDeniedException::NO_PERMISSION);
         }
         if ($schema->contextRequired && $allowed === []) {
             throw new ReportAccessDeniedException(ReportAccessDeniedException::NO_CONTEXT);
         }
 
+        $keys     = array_flip($this->keys($allowed));
         $narrowed = [];
         foreach ($choices as $choice) {
-            if (in_array($choice->ref->key(), $this->keys($allowed), true)) {
+            if (isset($keys[$choice->ref->key()])) {
                 $narrowed[] = $choice;
             }
         }
 
-        return $narrowed;
+        return [$narrowed, $noContexts];
     }
 
     /**
@@ -217,12 +230,12 @@ final readonly class ReportBuilder implements ReportBuilderInterface
         $granted = [];
         foreach ($answer as $context) {
             if ($context instanceof ContextRef) {
-                $granted[] = $context->key();
+                $granted[$context->key()] = true;
             }
         }
         $allowed = [];
         foreach ($scope as $context) {
-            if (in_array($context->key(), $granted, true)) {
+            if (isset($granted[$context->key()])) {
                 $allowed[] = $context;
             }
         }

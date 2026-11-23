@@ -46,8 +46,60 @@ final class ReportBuilderTest extends TestCase
         $builder = $this->builder();
 
         self::assertSame(['orders', 'personal', 'revenue'], array_keys($builder->available($this->owner('alice'), new stdClass())));
-        // root: no context; revenue needs one (refused), orders and personal run context-free.
+        // root: no context but a context-free grant; revenue needs one (refused), orders opens context-free.
         self::assertSame(['orders', 'personal'], array_keys($builder->available($this->owner('root'), new stdClass())));
+        // newbie: no context and no grant (audit ZY-M1): the permission-less context type orders is not listed either.
+        self::assertSame(['personal'], array_keys($builder->available($this->owner('newbie'), new stdClass())));
+    }
+
+    public function testZeroContextsOnARealScopeResolverFailClosedZyM1(): void
+    {
+        $builder = $this->builder();
+
+        try {
+            $builder->prepare('orders', $this->owner('newbie'), new stdClass(), []);
+            self::fail('newbie has no context');
+        } catch (ReportAccessDeniedException $e) {
+            self::assertSame(ReportAccessDeniedException::NO_CONTEXT, $e->reason);
+        }
+        try {
+            $builder->build('orders', $this->owner('newbie'), new stdClass(), [], true);
+            self::fail('scheduled builds too');
+        } catch (ReportAccessDeniedException $e) {
+            self::assertSame(ReportAccessDeniedException::NO_CONTEXT, $e->reason);
+        }
+
+        // An explicit context-free grant opens it, and the type can tell it apart.
+        $root = $builder->prepare('orders', $this->owner('root'), new stdClass(), []);
+        self::assertSame([], $root->request->accessible);
+        self::assertTrue($root->request->contextFreeGrant);
+        // Contexts, a type without context, or a host without contexts: no flag.
+        self::assertFalse($builder->prepare('orders', $this->owner('alice'), new stdClass(), [])->request->contextFreeGrant);
+        self::assertFalse($builder->prepare('personal', $this->owner('newbie'), new stdClass(), [])->request->contextFreeGrant);
+        $hostWithoutContexts = $this->builder(scope: new NoContextScopeResolver(), access: new UnconfiguredReportAccessChecker());
+        $instanceWide        = $hostWithoutContexts->prepare('orders', $this->owner('newbie'), new stdClass(), []);
+        self::assertSame([], $instanceWide->request->accessible);
+        self::assertFalse($instanceWide->request->contextFreeGrant);
+        // A permission type with zero contexts on a real resolver: refused the same way.
+        $this->expectExceptionObject(new ReportAccessDeniedException(ReportAccessDeniedException::NO_CONTEXT));
+        $this->builder(scope: $this->scope([]), access: new UnconfiguredReportAccessChecker())->prepare('revenue', $this->owner('alice'), new stdClass(), []);
+    }
+
+    public function testAListenerGrantOpensAZeroContextBuildExplicitlyZyM1(): void
+    {
+        $events  = new EventDispatcher();
+        $builder = $this->builder(events: $events);
+        $seen    = [];
+        $events->addListener(ReportKitEvents::REPORT_ACCESS_CHECK, static function (ReportAccessCheckEvent $event) use (&$seen): void {
+            $seen[] = [$event->type, $event->scope, $event->allowedWithoutContext];
+            $event->grant();
+        });
+
+        $prepared = $builder->prepare('orders', $this->owner('newbie'), new stdClass(), []);
+        self::assertSame([['orders', [], false]], $seen);
+        self::assertSame([], $prepared->request->accessible);
+        self::assertTrue($prepared->request->contextFreeGrant);
+        self::assertSame(['orders', 'personal'], array_keys($builder->available($this->owner('newbie'), new stdClass())));
     }
 
     public function testCheckerIsIntersectedWithTheScope(): void
@@ -86,7 +138,7 @@ final class ReportBuilderTest extends TestCase
         } catch (UnknownReportTypeException $e) {
             self::assertSame('nope', $e->type);
         }
-        foreach (['carol' => ReportAccessDeniedException::NO_PERMISSION, 'root' => ReportAccessDeniedException::NO_CONTEXT] as $owner => $reason) {
+        foreach (['carol' => ReportAccessDeniedException::NO_CONTEXT, 'root' => ReportAccessDeniedException::NO_CONTEXT] as $owner => $reason) {
             try {
                 $builder->prepare('revenue', $this->owner($owner), new stdClass(), []);
                 self::fail($owner);
@@ -157,6 +209,8 @@ final class ReportBuilderTest extends TestCase
         } catch (ReportLimitExceededException $e) {
             self::assertSame(ReportLimitExceededException::SCOPE_CONTEXTS, $e->limit);
         }
+        // The list hides the types over the ceiling instead of failing (audit ZY-L2).
+        self::assertSame(['personal'], array_keys($this->builder(scope: $this->scope($many))->available($this->owner('alice'), new stdClass())));
 
         $this->expectException(LogicException::class);
         $this->builder(scope: $this->scope([new ContextRef('project', 'a1')]))->prepare('orders', $this->owner('alice'), new stdClass(), []);

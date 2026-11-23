@@ -34,6 +34,54 @@ final class ReportPagesTest extends WebKernelTestCase
         self::assertStringContainsString('/reports/orders', $html);
     }
 
+    public function testANewUserWithoutContextsSeesNoContextTypeZyM1(): void
+    {
+        $kernel = $this->bootTeam();
+
+        [$status, $headers, $html] = $this->get($kernel, '/reports', 'newbie');
+        self::assertSame(200, $status);
+        self::assertSame('no-store, private', $headers['cache-control']);
+        self::assertStringContainsString('/reports/personal', $html);
+        self::assertStringNotContainsString('/reports/orders', $html, 'orders has no permission but takes contexts');
+        self::assertStringNotContainsString('/reports/revenue', $html);
+        foreach (['/reports/orders', '/reports/orders/export.csv', '/reports/orders/export.xlsx', '/reports/orders/export.pdf', '/reports/revenue', '/reports/revenue/export.csv'] as $uri) {
+            [$status, , $body] = $this->get($kernel, $uri, 'newbie');
+            self::assertSame(403, $status, $uri);
+            self::assertStringNotContainsString('project:', $body, $uri);
+        }
+        self::assertSame(200, $this->get($kernel, '/reports/personal', 'newbie')[0]);
+        // root has no context either, but the host's checker grants it context-free: the type sees the flag.
+        [$status, , $html] = $this->get($kernel, '/reports/orders', 'root');
+        self::assertSame(200, $status);
+        self::assertStringContainsString('context-free-grant', $html);
+        self::assertStringNotContainsString('project:', $html);
+    }
+
+    public function testAGrantOpensAZeroContextTypeExplicitlyZyM1(): void
+    {
+        $kernel     = $this->bootTeam();
+        $dispatcher = $kernel->getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(ReportKitEvents::REPORT_ACCESS_CHECK, static function (ReportAccessCheckEvent $event): void {
+            if ($event->owner->id === 'newbie' && $event->type === 'orders') {
+                $event->grant();
+            }
+        });
+
+        [, , $html] = $this->get($kernel, '/reports', 'newbie');
+        self::assertStringContainsString('/reports/orders', $html);
+        self::assertStringNotContainsString('/reports/revenue', $html, 'context required: still refused');
+        [$status, , $html] = $this->get($kernel, '/reports/orders', 'newbie');
+        self::assertSame(200, $status);
+        self::assertStringContainsString('context-free-grant', $html);
+        foreach (['csv', 'xlsx', 'pdf'] as $format) {
+            self::assertSame(200, $this->get($kernel, '/reports/orders/export.' . $format, 'newbie')[0], $format);
+        }
+        [, , $csv] = $this->get($kernel, '/reports/orders/export.csv', 'newbie');
+        self::assertStringContainsString('context-free-grant', $csv);
+        self::assertStringNotContainsString('project:', $csv);
+    }
+
     public function testAnonymousAndWrongRoleAreRefused(): void
     {
         $kernel = $this->bootTeam();
@@ -53,6 +101,7 @@ final class ReportPagesTest extends WebKernelTestCase
         [$status, $headers, $html] = $this->get($kernel, '/reports/revenue?period=30&channel=shop&limit=5&gross=0&since=2026-11-01', 'alice');
         self::assertSame(200, $status, $html);
         self::assertSame('text/html; charset=UTF-8', $headers['content-type']);
+        self::assertSame('no-store, private', $headers['cache-control']);
         self::assertStringContainsString('data-testid="report-kit-show"', $html);
         // Context required: the first granting context opens; a2 is in alice's scope but not granted, zz never offered.
         self::assertStringContainsString('project:a1', $html);
@@ -163,6 +212,9 @@ final class ReportPagesTest extends WebKernelTestCase
         self::assertSame(429, $status);
         self::assertGreaterThan(0, (int) $headers['retry-after']);
         self::assertSame(200, $this->get($kernel, '/reports/orders', 'bob')[0], 'per person');
+        self::assertSame(429, $this->get($kernel, '/reports', 'bob')[0], 'the list counts too');
+        self::assertSame(200, $this->get($kernel, '/reports', 'root')[0]);
+        self::assertSame(429, $this->get($kernel, '/reports/orders', 'root')[0]);
 
         self::assertSame(200, $this->get($kernel, '/reports/orders/export.csv', 'alice')[0]);
         self::assertSame(429, $this->get($kernel, '/reports/orders/export.csv', 'alice')[0]);

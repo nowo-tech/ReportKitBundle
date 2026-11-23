@@ -110,6 +110,9 @@ Additive changes to the contract text, kept for review before 0.2.0:
 | `ContextChoice` | `{ref, label}` | as written; label cleaned and 1–200 characters | same cleaning as every report text |
 | Screen render bounds | not listed | the PDF bounds (`pdf_max_rows`, `pdf_max_cell`) | the page uses the PDF view model; the full data is in CSV / XLSX |
 | Export route errors | not listed | limit over → 503, unknown format → 404, rate limit → 429 | |
+| Empty scope on a real scope resolver, `ReportRequest::$contextFreeGrant` | §4.1 "never empty when building"; §4.3 "only asked for types with a permission" | fail closed: a type with `context: true` is refused (403 `NO_CONTEXT`, not listed) to a person with zero contexts, permission or not, unless `allowsWithoutContext()` (now also asked for permission-less context types) or a listener's `grant()` opens it; that build carries `contextFreeGrant: true` | audit ZY-M1: a type could not tell "the host has no contexts" from "this person has none" and a new user saw every context's figures |
+| Report pages answer | not listed | the list counts under `limits.views`; HTML pages `no-store, private`; a type's limit or argument exception → 503; a scope over 5,000 contexts hides the type from the list | audit ZY-L2, ZY-L3, ZY-I3 |
+| `ParameterSchema::RESERVED` | `period`, `context`, `format` | adds `type` | audit ZY-I1: the export link's route `type` would drop an extra of that name |
 
 ## Open questions for Beacon
 

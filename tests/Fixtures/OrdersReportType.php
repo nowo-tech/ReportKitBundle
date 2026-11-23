@@ -39,6 +39,10 @@ final class OrdersReportType extends AbstractReportType
             $rows[] = [$context->key(), $request->owner->id, $request->parameters->periodDays];
         }
 
+        if ($request->contextFreeGrant) {
+            $rows[] = ['context-free-grant', $request->owner->id, $request->parameters->periodDays];
+        }
+
         $seed   = $request->parameters->extra['seed'] ?? 0;
         $rows[] = ['seed-' . $seed . '-' . $request->owner->id . '-' . md5((string) $seed), $request->owner->id, $request->parameters->periodDays];
 

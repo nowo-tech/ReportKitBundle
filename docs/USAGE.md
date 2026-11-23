@@ -57,6 +57,13 @@
    }
    ```
 
+   `$request->accessible` is never empty for a type that takes contexts on a host with a scope resolver, except when
+   `$request->contextFreeGrant` is true: the person has no context and `allowsWithoutContext()` or a
+   `ReportAccessCheckEvent::grant()` opened the build on purpose; decide what that build shows (the person's own data,
+   instance-wide figures for an operator…). A person with zero contexts is otherwise refused (403, not listed), with or
+   without a permission. `accessible === []` without the flag means the type takes no context or the host has none
+   (`NoContextScopeResolver`).
+
    `report()` writes the translated title (`report_type.orders.title` in your domain), the filters line and the file
    name base `orders-<context|all>-<date>` from the **effective** scope: when the requested context was not accessible
    it says "All accessible contexts (the requested context is not available)" and the file says `all` (audit ZE-I3).
@@ -122,8 +129,11 @@
    ```
 
    The checker's answer is intersected with the scope (exact keys): it can narrow, never widen. Without a scope
-   resolver every type runs without a context (types that require one are hidden). A type with a permission and no
-   checker is refused, and `cache:warmup` fails so the gap shows at deploy time.
+   resolver every type runs without a context (types that require one are hidden). With a scope resolver, a person it
+   gives no context is refused every type with `context: true` (fail closed), permission or not, unless
+   `allowsWithoutContext()` answers true for that type (it is asked for permission-less context types too) or a listener
+   grants it; the build then has `ReportRequest::$contextFreeGrant`. A type with a permission and no checker is
+   refused, and `cache:warmup` fails so the gap shows at deploy time.
 
 2. Import the routes and protect the prefix (REQ-UI-002, both layers):
 
@@ -140,12 +150,12 @@
 
    | Route | Path | Answer |
    | --- | --- | --- |
-   | `nowo_report_kit_index` | `GET /reports` | the types the viewer may open |
+   | `nowo_report_kit_index` | `GET /reports` | the types the viewer may open (`limits.views`) |
    | `nowo_report_kit_show` | `GET /reports/{type}?period=&context=&…` | the report page (`limits.views`) |
    | `nowo_report_kit_export` | `GET /reports/{type}/export.{csv\|xlsx\|pdf}` | the file, `no-store, private` (`limits.exports`) |
 
    Unknown type → 404; type not granted → 403; anonymous → your firewall's entry point; over a rate limit → 429 with
-   `Retry-After`; a render over a limit → 503. A context the viewer may not read falls back to "all accessible" and the
+   `Retry-After`; a build or render over a limit → 503. Pages and files are `no-store, private`. A context the viewer may not read falls back to "all accessible" and the
    page says so.
 
 3. React to decisions and exports: `ReportKitEvents::REPORT_ACCESS_CHECK` (`ReportAccessCheckEvent`: `grant()` opens

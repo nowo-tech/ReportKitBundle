@@ -163,14 +163,25 @@ final readonly class ReportParameters { public function __construct(public int $
 
 final readonly class ReportRequest    // what a type receives
 {
-    /** @param list<ContextRef> $accessible contexts the owner may report on for THIS type, already narrowed (never empty when building) */
+    /**
+     * @param list<ContextRef> $accessible contexts the owner may report on for THIS type, already narrowed (never empty when building
+     *                                     a type that takes contexts on a host with a scope resolver, unless $contextFreeGrant)
+     * @param bool $contextFreeGrant the type takes contexts, the scope resolver returned none for this person and the build was
+     *                               opened explicitly (allowsWithoutContext() or a ReportAccessCheckEvent grant); see below
+     */
     public function __construct(
         public OwnerRef $owner, public object $user, public ReportParameters $parameters, public array $accessible,
         public string $locale, public string $timezone, public \DateTimeImmutable $now, public bool $scheduled,
+        public ?string $contextLabel = null, public bool $contextFreeGrant = false,
     ) {}
     /** UTC day window [from, to) for the period, plus the previous window and the day keys (Beacon's AbstractReportType::window()). */
     public function window(): ReportWindow;
 }
+
+// Empty $accessible (S2, audit ZY-M1, fail closed): a person for whom a real scope resolver (not NoContextScopeResolver)
+// returns no context is refused any type with `context: true` (403 NO_CONTEXT, not listed), with or without a permission,
+// unless allowsWithoutContext() or a ReportAccessCheckEvent grant opens it; that build has $contextFreeGrant = true.
+// $accessible === [] with $contextFreeGrant = false only means "the type takes no context" or "the host has no contexts".
 
 final readonly class Report          // Beacon's class, same shape, plus the brand context
 {
@@ -232,8 +243,8 @@ interface SubscriptionsInterface
 | Interface | Signature | Default |
 | --- | --- | --- |
 | `ReportTypeInterface` (tagged `nowo_report_kit.type`) | `key()`, `labelKey()`, `descriptionKey()`, `icon()`, `parameters(): ParameterSchema`, `permission(): ?string`, `build(ReportRequest): Report` | None (the demo ships two example types). `AbstractReportType` gives Beacon's helpers: `window()`, `report()`, translated headers, `hours()` |
-| `ReportScopeResolverInterface` | `accessibleContexts(OwnerRef $owner, object $user, string $type): list<ContextChoice{ref, label}>` | `NoContextScopeResolver`: types run without context (personal / instance-wide); a type with `contextRequired` is hidden |
-| `ReportAccessCheckerInterface` | `allows(OwnerRef $owner, object $user, string $type, list<ContextRef> $contexts): list<ContextRef>` (the contexts that grant the type's permission) | When a type declares a permission and no checker is configured, the container does not build. Without permissions: `IS_AUTHENTICATED` only |
+| `ReportScopeResolverInterface` | `accessibleContexts(OwnerRef $owner, object $user, string $type): list<ContextChoice{ref, label}>` | `NoContextScopeResolver`: types run without context (personal / instance-wide); a type with `contextRequired` is hidden. A real resolver that returns no context for a person refuses that person every type with `context: true` unless explicitly granted (§4.1) |
+| `ReportAccessCheckerInterface` | `allows(OwnerRef $owner, object $user, string $type, list<ContextRef> $contexts): list<ContextRef>` (the contexts that grant the type's permission) | When a type declares a permission and no checker is configured, the container does not build. Without permissions: `IS_AUTHENTICATED` only, except that `allowsWithoutContext()` is also asked for a permission-less context type when a real scope resolver returns no context (§4.1) |
 | `OwnerResolverInterface` / `OwnerDirectoryInterface` | `ownerOf(user)`, `userOf(OwnerRef)`; `email()`, `locale()`, `timezone()`, `isActive()`, `displayName()` | Doctrine resolver + UserKit adapter when installed (as 221-A / 221-B) |
 | `ReportBrandResolverInterface` | `brandFor(?ContextRef $context): Brand` (brand-contracts) | `ScopedBrandProviderInterface::getBrandFor()` when the host has one (brand per project, spec 220), else `BrandProviderInterface::getBrand()`, else a neutral built-in brand |
 | `ReportMailerInterface` | `send(ScheduledReportMail $mail): void` | Symfony Mailer with MailKit's `BrandedEmailHelper` when installed; template overridable |

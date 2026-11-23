@@ -27,11 +27,17 @@ S2 (pages, target 0.2.0): the report pages and export routes exist when `web_ui.
   links are rebuilt from the resolved parameters, never copied from the request. The checker's answer is intersected
   with the scope, and a `ReportAccessCheckEvent` grant opens the scope, never more. A type that is not granted is not
   listed and its routes answer 403; an unknown type 404.
-- **Limits.** `limits.views` and `limits.exports` per owner (429 + `Retry-After`), counted before the build, so refused
-  attempts count too; at most 5,000 scope contexts per build; the page shows the PDF bounds (`pdf_max_rows`,
+- **Zero contexts fail closed (audit ZY-M1).** With a real scope resolver (not `NoContextScopeResolver`), a person it
+  gives no context for a type with `context: true` is refused that type (not listed, 403 `NO_CONTEXT` on the page and
+  every export), even when the type declares no permission. Only `allowsWithoutContext()` or an explicit listener
+  `grant()` opens it, and that build carries `ReportRequest::$contextFreeGrant = true`, so a type never mistakes "this
+  person has no project" for "this host has no projects" and returns every project's figures.
+- **Limits.** `limits.views` (list and report page) and `limits.exports` per owner (429 + `Retry-After`), counted
+  before the build, so refused attempts count too; at most 5,000 scope contexts per build (the list hides such a type,
+  the page answers 503); a type's own limit exception answers 503; the page shows the PDF bounds (`pdf_max_rows`,
   `pdf_max_cell`), the files keep `max_rows_per_section`; `render_seconds` and `max_pdf_html_bytes` answer 503.
 - **Output.** Every page value is escaped by Twig; charts are SVG images built from numbers and escaped labels; no
-  inline script or style. Exports keep the S1 guards (CSV formula prefix, XLSX string cells, closed Dompdf) and the
+  inline script or style; the HTML pages are `no-store, private` like the files. Exports keep the S1 guards (CSV formula prefix, XLSX string cells, closed Dompdf) and the
   `no-store, private` attachment headers.
 
 

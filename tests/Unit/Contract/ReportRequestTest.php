@@ -48,6 +48,16 @@ final class ReportRequestTest extends TestCase
         self::assertNull((new ReportRequest(new OwnerRef('user', '1'), new stdClass(), new ReportParameters(7, null), [], 'en', 'UTC', new DateTimeImmutable()))->contextLabel);
     }
 
+    public function testContextFreeGrantNeedsAnEmptyScopeZyM1(): void
+    {
+        $owner = new OwnerRef('user', '1');
+        self::assertFalse((new ReportRequest($owner, new stdClass(), new ReportParameters(7, null), [], 'en', 'UTC', new DateTimeImmutable()))->contextFreeGrant);
+        self::assertTrue((new ReportRequest($owner, new stdClass(), new ReportParameters(7, null), [], 'en', 'UTC', new DateTimeImmutable(), contextFreeGrant: true))->contextFreeGrant);
+
+        $this->expectException(InvalidReportArgumentException::class);
+        new ReportRequest($owner, new stdClass(), new ReportParameters(7, null), [new ContextRef('project', 'a')], 'en', 'UTC', new DateTimeImmutable(), contextFreeGrant: true);
+    }
+
     /**
      * @param list<mixed> $accessible
      */

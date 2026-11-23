@@ -38,6 +38,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `nowo-tech/ui-kit-bundle` ^2.68, `nowo-tech/form-kit-bundle` ^2.24, `symfony/form`, `symfony/rate-limiter`,
   `symfony/routing`, `symfony/security-core` and `symfony/event-dispatcher` are now required (contract §2).
+- The report list counts under `limits.views` and hides a type whose scope exceeds 5,000 contexts instead of failing;
+  a type's `ReportLimitExceededException` / `InvalidReportArgumentException` during the page or export build answers
+  503 instead of 500; report HTML pages send `Cache-Control: no-store, private` (audit ZY-L2, ZY-L3, ZY-I3).
+- `ParameterSchema::RESERVED` adds `type` (the export route's parameter; audit ZY-I1).
+- The builder intersects contexts by key sets (`isset`) instead of nested `in_array` (audit ZY-L1).
+
+### Removed
+
+- Unused dev dependencies `symfony/browser-kit`, `symfony/css-selector`, `symfony/dom-crawler`.
+
+### Security
+
+- **Zero contexts fail closed** (audit ZY-M1): with a real scope resolver, a person who has no context for a type with
+  `context: true` is refused that type (not listed; 403 `NO_CONTEXT` on the page and every export), with or without a
+  permission. Only `ReportAccessCheckerInterface::allowsWithoutContext()` (now also asked for permission-less context
+  types) or an explicit `ReportAccessCheckEvent::grant()` opens it, and that build carries the new
+  `ReportRequest::$contextFreeGrant` flag so the type can decide what a context-free build shows.
 
 ## [0.1.0] - 2026-11-22
 
