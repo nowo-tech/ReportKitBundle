@@ -1,0 +1,46 @@
+{#
+  NowoReportKitBundle — the sections of the report page, from ScreenSections (the PDF view model, same bounds).
+  Variables: sections, bundle. Every value is printed escaped; charts are <img> data URIs of SVG generated from
+  numbers and escaped labels (an SVG in <img> runs no script), with a dark twin shown under [data-theme=dark].
+  Override with web_ui.templates.sections (docs/TEMPLATES.md).
+#}
+{%- set _d = 'NowoReportKitBundle' -%}
+{%- set _b = bundle -%}
+{% for item in sections %}
+    {% set section = item.section %}
+    <section class="{{ nowo_ui_class('card', _b) }}" id="{{ item.id }}" aria-labelledby="{{ item.id }}-title" data-testid="report-kit-section" data-kind="{{ item.kind }}"{{ nowo_ui_attrs('card', _b) }}>
+        <div class="{{ nowo_ui_class('card_body', _b) }}">
+            <h2 class="{{ nowo_ui_class('card_title', _b) }}" id="{{ item.id }}-title">{{ section.title }}</h2>
+            {% if item.empty %}
+                <p class="{{ nowo_ui_class('muted', _b) }}" data-testid="report-kit-section-empty">{{ 'show.section_empty'|trans({}, _d) }}</p>
+            {% elseif item.kind == 'kpis' %}
+                {{ include(nowo_ui_partial('stat_row', _b), {items: item.stats, label: section.title, attr: {class: 'nowo-ui-stat-row--tiles'}, bundle: _b}, false) }}
+            {% elseif item.kind == 'series' %}
+                <div class="{{ nowo_ui_class('table_wrap', _b) }}" tabindex="0" role="region" aria-label="{{ 'report.chart_alt'|trans({'%title%': section.title}, _d) }}" data-testid="report-kit-chart">
+                    <img src="{{ item.svg }}" alt="{{ 'report.chart_alt'|trans({'%title%': section.title}, _d) }}" width="520" height="120" decoding="async" data-nowo-ui-theme-only="light">
+                    <img src="{{ item.svg_dark }}" alt="{{ 'report.chart_alt'|trans({'%title%': section.title}, _d) }}" width="520" height="120" decoding="async" data-nowo-ui-theme-only="dark">
+                </div>
+                <ul class="nowo-ui-chips" aria-label="{{ 'show.legend'|trans({}, _d) }}">
+                    {% for entry in item.legend %}
+                        <li class="nowo-ui-chip"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><rect width="10" height="10" fill="{{ entry[1] }}"/></svg> <span class="nowo-ui-chip__label">{{ entry[0] }}</span></li>
+                    {% endfor %}
+                </ul>
+                <dl class="{{ nowo_ui_class('stat_row', _b) }}" data-testid="report-kit-series-stats">
+                    <div class="{{ nowo_ui_class('stat', _b) }}"><dt class="{{ nowo_ui_class('stat_label', _b) }}">{{ 'report.stat.total'|trans({}, _d) }}</dt><dd class="{{ nowo_ui_class('stat_value', _b) }}">{{ item.total|number_format }}</dd></div>
+                    <div class="{{ nowo_ui_class('stat', _b) }}"><dt class="{{ nowo_ui_class('stat_label', _b) }}">{{ 'report.stat.peak'|trans({}, _d) }}</dt><dd class="{{ nowo_ui_class('stat_value', _b) }}">{{ item.peak|number_format }}{% if item.peak_day %} · {{ item.peak_day }}{% endif %}</dd></div>
+                    <div class="{{ nowo_ui_class('stat', _b) }}"><dt class="{{ nowo_ui_class('stat_label', _b) }}">{{ 'report.stat.mean'|trans({}, _d) }}</dt><dd class="{{ nowo_ui_class('stat_value', _b) }}">{{ item.mean|number_format(1) }}</dd></div>
+                </dl>
+                <p class="{{ nowo_ui_class('muted', _b) }}">{{ 'report.stat.daily_in_exports'|trans({}, _d) }}</p>
+            {% elseif item.kind == 'slices' %}
+                {% for slice in item.slices %}
+                    {{ include(nowo_ui_partial('progress', _b), {percent: slice.share, label: slice.label ~ ' · ' ~ slice.value|number_format, id: item.id ~ '-slice-' ~ loop.index, bundle: _b}, false) }}
+                {% endfor %}
+            {% else %}
+                {{ include(nowo_ui_partial('table', _b), {table: item.table, bundle: _b, label: section.title, scroll_label: section.title}, false) }}
+                {% if item.style == 'trace' %}<p class="{{ nowo_ui_class('muted', _b) }}">{{ 'report.trace_legend'|trans({}, _d) }}</p>{% endif %}
+            {% endif %}
+            {% if item.cut is not null %}<p class="{{ nowo_ui_class('muted', _b) }}" data-testid="report-kit-truncated">{{ 'report.truncated'|trans({'%count%': item.cut}, _d) }}</p>{% endif %}
+            {% if item.spark_cut is defined and item.spark_cut is not null %}<p class="{{ nowo_ui_class('muted', _b) }}">{{ 'report.spark_truncated'|trans({'%count%': item.spark_cut}, _d) }}</p>{% endif %}
+        </div>
+    </section>
+{% endfor %}

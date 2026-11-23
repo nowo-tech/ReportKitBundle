@@ -15,7 +15,7 @@ use function str_contains;
 
 /**
  * Strict configuration tree of `nowo_report_kit` (contract 221-C §7). Every key exists from S0 so hosts can write the
- * final configuration now; `enabled: false` registers nothing.
+ * final configuration now; `enabled: false` registers no service (only the route loader, with no route).
  */
 final class Configuration implements ConfigurationInterface
 {
@@ -32,7 +32,7 @@ final class Configuration implements ConfigurationInterface
 
         $root
             ->children()
-                ->booleanNode('enabled')->defaultFalse()->info('Nothing is registered while false')->end()
+                ->booleanNode('enabled')->defaultFalse()->info('No service is registered while false (the route loader loads no route)')->end()
                 ->append(ConfigNodes::doctrine())
                 ->arrayNode('owner')
                     ->addDefaultsIfNotSet()
@@ -193,6 +193,8 @@ final class Configuration implements ConfigurationInterface
                                     ->defaultValue(['ROLE_USER'])
                                     ->scalarPrototype()->cannotBeEmpty()->end()
                                 ->end()
+                                ->append(ConfigNodes::service('access_checker', 'ReportKitAccessCheckerInterface service; null = the role checker of access_roles'))
+                                ->booleanNode('allow_unauthenticated')->defaultFalse()->info('DEMO / DEV ONLY: open the pages without SecurityBundle or a signed-in user (shared guest owner)')->end()
                             ->end()
                         ->end()
                     ->end()

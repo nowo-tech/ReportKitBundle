@@ -28,3 +28,30 @@ report:
     filters:
         period: 'Últimos %count% dias'
         period_scope: 'Últimos %count% dias · %scope%'
+index:
+    title: 'Relatórios'
+    intro: 'Os relatórios que pode abrir.'
+    column:
+        title: 'Relatório'
+        description: 'Descrição'
+    open: 'Abrir'
+    empty: 'Não tem nenhum relatório disponível.'
+show:
+    back: 'Todos os relatórios'
+    about: 'Sobre este relatório'
+    context_fallback: 'O contexto pedido não está disponível para si: o relatório abrange todos os contextos a que tem acesso.'
+    section_empty: 'Sem dados para este período.'
+    legend: 'Legenda'
+filter:
+    title: 'Filtros'
+    period: 'Período'
+    period_days: 'Últimos %days% dias'
+    context: 'Contexto'
+    all_contexts: 'Todos os contextos acessíveis'
+    apply: 'Aplicar'
+    'yes': 'Sim'
+    'no': 'Não'
+export:
+    csv: 'Exportar CSV'
+    xlsx: 'Exportar XLSX'
+    pdf: 'Exportar PDF'

@@ -33,7 +33,7 @@ final class ExtensionTest extends TestCase
         self::assertSame('/api', $container->getParameter('nowo_report_kit.api_prefix'));
         self::assertSame('nowo_', $container->getParameter('nowo_report_kit.table_prefix'));
         self::assertIsArray($container->getParameter('nowo_report_kit.config'));
-        self::assertSame([], $this->bundleIds($container));
+        self::assertSame(['nowo_report_kit.web.route_loader'], $this->bundleIds($container), 'only the (empty) route loader');
         self::assertFalse($container->hasParameter('nowo_report_kit.formats'));
     }
 

@@ -52,7 +52,7 @@ final class ConfigurationTest extends TestCase
             'path_prefix'     => '/reports',
             'layout_template' => null,
             'templates'       => ['index' => null, 'show' => null, 'sections' => null, 'schedule_dialog' => null],
-            'security'        => ['access_roles' => ['ROLE_USER']],
+            'security'        => ['access_roles' => ['ROLE_USER'], 'access_checker' => null, 'allow_unauthenticated' => false],
         ], $config['web_ui']);
         self::assertSame(['enabled' => false, 'path_prefix' => '/admin/report-subscriptions', 'security' => ['access_roles' => ['ROLE_ADMIN'], 'access_checker' => null, 'allow_unauthenticated' => false]], $config['admin_ui']);
         self::assertSame(['enabled' => false, 'prefix' => '/api'], $config['api']);

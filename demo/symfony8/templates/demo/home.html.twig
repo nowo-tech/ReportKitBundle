@@ -10,12 +10,25 @@
 {% endblock %}
 
 {% block body %}
-    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'Bundle status', intro: 'S0 scaffold: the bundle class and its strict configuration tree. The features arrive with the next slices (see docs/ROADMAP.md).', kind: 'table'} %}
-        {% block section_actions %}<span class="nowo-ui-badge nowo-ui-badge--info" data-testid="demo-status-badge">S0 scaffold</span>{% endblock %}
+    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'Sign in', intro: 'The report pages are private. Pick a demo user (no password: demo only). Each one sees only the projects and reports it may open.', kind: 'form'} %}
+        {% block section_body %}
+            {% if app.user %}
+                <p data-testid="demo-signed-in">Signed in as <strong>{{ app.user.userIdentifier }}</strong>. <a href="{{ path('nowo_report_kit_index') }}">Open the reports</a> · <a href="{{ path('demo_sign_out') }}">Sign out</a></p>
+            {% else %}
+                {{ form_start(sign_in, {attr: {'data-testid': 'demo-sign-in'}}) }}
+                {{ form_row(sign_in.user) }}
+                <div class="nowo-ui-form__actions"><button type="submit" class="nowo-ui-btn nowo-ui-btn--primary" data-testid="demo-sign-in-submit">Sign in</button></div>
+                {{ form_end(sign_in) }}
+            {% endif %}
+        {% endblock %}
+    {% endembed %}
+    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'Bundle status', intro: 'S2: report pages (list, report with filters, CSV / XLSX / PDF exports) on two demo types. Subscriptions arrive with S3 (see docs/ROADMAP.md).', kind: 'table'} %}
+        {% block section_actions %}<span class="nowo-ui-badge nowo-ui-badge--info" data-testid="demo-status-badge">S2 pages</span>{% endblock %}
         {% block section_body %}
             <table class="nowo-ui-data-table" data-testid="demo-status">
                 <tbody>
                     <tr><th scope="row">Bundle</th><td><code class="nowo-ui-code">Nowo\ReportKitBundle\NowoReportKitBundle</code> registered, <code class="nowo-ui-code">nowo_report_kit.enabled</code> = <strong>{{ enabled ? 'true' : 'false' }}</strong></td></tr>
+                    <tr><th scope="row">Report pages</th><td><code class="nowo-ui-code">/reports</code> (signed-in users)</td></tr>
                     <tr><th scope="row">API prefix parameter</th><td><code class="nowo-ui-code">%nowo_report_kit.api_prefix%</code> = <code class="nowo-ui-code">{{ api_prefix }}</code></td></tr>
                     <tr><th scope="row">Table prefix</th><td><code class="nowo-ui-code">{{ table_prefix }}</code></td></tr>
                     <tr><th scope="row">Database</th><td>{{ database is null ? 'not reachable' : 'MySQL ' ~ database }}</td></tr>

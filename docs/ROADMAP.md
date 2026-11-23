@@ -10,6 +10,7 @@ in the batch before 1.0.0.
 - [Slices](#slices)
 - [Owner decisions (2026-11-12)](#owner-decisions-2026-11-12)
 - [S1 notes (contract deviations)](#s1-notes-contract-deviations)
+- [S2 notes (contract deviations)](#s2-notes-contract-deviations)
 - [Open questions for Beacon](#open-questions-for-beacon)
 
 ## Slices
@@ -18,7 +19,7 @@ in the batch before 1.0.0.
 | --- | --- | --- | --- |
 | **S0** scaffold | `main`, no tag | Composer, Docker, Makefile + release-check, CI matrix (SQLite / MySQL / PostgreSQL job), PHPStan + worker rulesets, Igor, Rector, CS, coverage gate, Spec Kit baseline, docs set, `.github`, release / sync workflows, Flex recipe, demo skeleton (FrankenPHP worker, MySQL, Mailpit), strict config tree. **Then the owner registers the package on Packagist** | Batched |
 | **S1** model + renderers | 0.1.0 | `Report` / `ReportSection`, registry, parameter schema, CSV / XLSX / PDF / JSON renderers, SVG charts, `PdfDocumentRendererInterface`, brand resolver, limits | Batched |
-| **S2** pages | 0.2.0 | Scope resolver + access checker SPIs, report list and page, export routes, rate limits, demo types | Batched |
+| **S2** pages | 0.2.0 (built, PR open) | Scope resolver + access checker SPIs, report list and page, export routes, rate limits, demo types | Batched |
 | **S3** subscriptions + runs | 0.3.0 | Tables + mapping, subscriptions service, schedule dialog, atomic claim, run log, runner as owner, mail, auto-pause, scheduler recipe, commands, events | **Immediate** |
 | **S4** operator + GDPR | 0.4.0 | Operator page, AuditKit bridge, UserKit eraser + export, NotifyKit bridge, `forgetContext()` | Batched |
 | **S5** docs + i18n | 0.5.0 | Translations ×7, docs (USAGE, CONFIGURATION, UPGRADING, TEMPLATES, FRANKENPHP-WORKER-AUDIT, MIGRATION-FROM-BEACON), schema-check, reference DDL | Batched |
@@ -64,6 +65,24 @@ Additive changes to the contract text, kept for review before 0.1.0:
 | Permission without checker refuses to build | §4.3 | S2 | with the access checker SPI |
 | Rate limits `limits.exports` / `views` | §6.4 | S2 | they guard routes |
 | `ReportSection` cap | `limits.max_rows_per_section` | hard cap 50,000 in the VO + configured cap in every renderer | a VO cannot read configuration |
+
+## S2 notes (contract deviations)
+
+Additive changes to the contract text, kept for review before 0.2.0:
+
+| Item | Contract | S2 | Why |
+| --- | --- | --- | --- |
+| `ReportAccessCheckerInterface::allowsWithoutContext()` | `allows()` only | added | `allows()` returns contexts; a type without context (or a person without any) needs a yes / no for the type's permission |
+| `ReportBuilderInterface::available()`, `prepare()`, `PreparedReport` | `build()` only | added | the list page needs the openable types; the report page needs the context choices and resolved parameters for the filter form and export links |
+| `build()` / `prepare()` `$locale`, `$timezone` | not listed | added (last, optional) | `ReportRequest` needs them; null = `en` / `schedule.default_timezone` (the owner directory arrives with S3) |
+| `OwnerResolverInterface::ownerOf()` returns `?OwnerRef` | `ownerOf(user)` | nullable | a user of another class has no owner: the pages answer 403 |
+| `ReportAccessCheckEvent` (grant / deny / default) | not listed | added | the house access pattern (per-record decisions through events, owner 2026-11-19); a grant never exceeds the scope resolver's contexts |
+| `ReportKitAccessCheckerInterface`, `web_ui.security.{access_checker,allow_unauthenticated}` | `access_roles` only | added | REQ-UI-002 canonical keys and area checker |
+| Permission without checker | "the container does not build" | builds refused + `cache:warmup` fails | the container cannot call `permission()` on the types at compile time |
+| `ReportScopeResolverInterface::MAX_CONTEXTS` (5,000) | not listed | added | bounds the `IN (…)` list a type receives; more refuses the build (503 on the pages) instead of truncating the scope |
+| `ContextChoice` | `{ref, label}` | as written; label cleaned and 1–200 characters | same cleaning as every report text |
+| Screen render bounds | not listed | the PDF bounds (`pdf_max_rows`, `pdf_max_cell`) | the page uses the PDF view model; the full data is in CSV / XLSX |
+| Export route errors | not listed | limit over → 503, unknown format → 404, rate limit → 429 | |
 
 ## Open questions for Beacon
 

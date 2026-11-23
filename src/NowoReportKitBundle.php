@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle;
 
 use Nowo\ReportKitBundle\DependencyInjection\Compiler\RenderingRequirementsPass;
+use Nowo\ReportKitBundle\DependencyInjection\Compiler\WebUiRequirementsPass;
 use Nowo\ReportKitBundle\DependencyInjection\NowoReportKitExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
@@ -26,12 +27,13 @@ final class NowoReportKitBundle extends Bundle
     public const TRANSLATION_DOMAIN = 'NowoReportKitBundle';
 
     /**
-     * Registers the compiler pass that checks the translator and Twig requirements.
+     * Registers the compiler passes that check the rendering and the report pages requirements.
      */
     public function build(ContainerBuilder $container): void
     {
         parent::build($container);
         $container->addCompilerPass(new RenderingRequirementsPass());
+        $container->addCompilerPass(new WebUiRequirementsPass());
     }
 
     /**

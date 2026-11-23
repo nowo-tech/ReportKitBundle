@@ -1,12 +1,13 @@
 # Usage
 
-> **S1 (model + renderers).** Report types, the parameter schema, the four renderers, the closed PDF runner and the
-> brand resolver work today, called from your own controllers. Pages, export routes and rate limits come in S2,
-> subscriptions in S3 (contract 221-C, [ROADMAP.md](ROADMAP.md)).
+> **S2 (pages).** Report types, the parameter schema, the four renderers, the closed PDF runner and the brand resolver
+> (S1), plus the scope / access SPIs, the report builder and the report pages with export routes and rate limits (S2).
+> Subscriptions come in S3 (contract 221-C, [ROADMAP.md](ROADMAP.md)).
 
 ## Table of contents
 
 - [In a standard Symfony application](#in-a-standard-symfony-application)
+- [Report pages (S2)](#report-pages-s2)
 - [Using it from a DDD / hexagonal application](#using-it-from-a-ddd--hexagonal-application)
 - [The closed PDF runner for other documents](#the-closed-pdf-runner-for-other-documents)
 - [FrankenPHP worker mode](#frankenphp-worker-mode)
@@ -80,6 +81,83 @@
    mark (as a data URI, through `BrandAssetReaderInterface` when you have one); a `ScopedBrandProviderInterface` gives
    each context its own brand. Without a provider the brand is neutral ("Reports").
 
+## Report pages (S2)
+
+1. Tell the bundle which contexts a person may report on and, for types with a `permission()`, which of them grant it:
+
+   ```php
+   use Nowo\ReportKitBundle\Contract\{ContextChoice, ContextRef, OwnerRef, ReportAccessCheckerInterface, ReportScopeResolverInterface};
+
+   final class ProjectScope implements ReportScopeResolverInterface
+   {
+       public function accessibleContexts(OwnerRef $owner, object $user, string $type): array
+       {
+           return array_map(static fn (Project $p) => new ContextChoice(new ContextRef('project', (string) $p->getId()), $p->getName()), $this->projects->readableBy($user));
+       }
+   }
+
+   final class ProjectPermissions implements ReportAccessCheckerInterface
+   {
+       public function allows(OwnerRef $owner, object $user, string $type, array $contexts): array
+       {
+           return array_values(array_filter($contexts, fn (ContextRef $c) => $this->acl->can($user, 'reports.' . $type, $c->id)));
+       }
+
+       public function allowsWithoutContext(OwnerRef $owner, object $user, string $type): bool
+       {
+           return false;   // instance-wide reports: your own rule
+       }
+   }
+   ```
+
+   ```yaml
+   nowo_report_kit:
+       enabled: true
+       owner: { type: user, id_field: id }          # or owner.resolver: your OwnerResolverInterface
+       scope: { resolver: App\Report\ProjectScope, access_checker: App\Report\ProjectPermissions }
+       web_ui:
+           enabled: true
+           path_prefix: /reports
+           security: { access_roles: [ROLE_USER] }
+   ```
+
+   The checker's answer is intersected with the scope (exact keys): it can narrow, never widen. Without a scope
+   resolver every type runs without a context (types that require one are hidden). A type with a permission and no
+   checker is refused, and `cache:warmup` fails so the gap shows at deploy time.
+
+2. Import the routes and protect the prefix (REQ-UI-002, both layers):
+
+   ```yaml
+   # config/routes/nowo_report_kit.yaml
+   nowo_report_kit:
+       resource: .
+       type: nowo_report_kit_ui
+   # config/packages/security.yaml
+   security:
+       access_control:
+           - { path: ^/reports, roles: ROLE_USER }
+   ```
+
+   | Route | Path | Answer |
+   | --- | --- | --- |
+   | `nowo_report_kit_index` | `GET /reports` | the types the viewer may open |
+   | `nowo_report_kit_show` | `GET /reports/{type}?period=&context=&…` | the report page (`limits.views`) |
+   | `nowo_report_kit_export` | `GET /reports/{type}/export.{csv\|xlsx\|pdf}` | the file, `no-store, private` (`limits.exports`) |
+
+   Unknown type → 404; type not granted → 403; anonymous → your firewall's entry point; over a rate limit → 429 with
+   `Retry-After`; a render over a limit → 503. A context the viewer may not read falls back to "all accessible" and the
+   page says so.
+
+3. React to decisions and exports: `ReportKitEvents::REPORT_ACCESS_CHECK` (`ReportAccessCheckEvent`: `grant()` opens
+   every scope context, `deny()` refuses) and `ReportKitEvents::REPORT_EXPORTED` (`ReportExportedEvent`: owner, type,
+   format, effective context, rows, bytes).
+
+4. Build reports yourself with `ReportBuilderInterface` (`available()`, `prepare()`, `build()`): the same scope, access
+   and parameter rules as the pages.
+
+The pages extend UiKit's list and show scaffolds; the filter form uses FormKit's `filter` profile and UiKit's form
+theme. Override the templates through `web_ui.templates.*` or the bundle override path ([TEMPLATES.md](TEMPLATES.md)).
+
 ## Using it from a DDD / hexagonal application
 
 | Concern | How a strict DDD host does it |
@@ -89,9 +167,10 @@
 | Branding | `brand.resolver`: your `ReportBrandResolverInterface` service. |
 | Runtime switches | `settings_provider`: your `ReportSettingsProviderInterface` service (formats on / off per call; no hard dependency on InstanceSettings). |
 | Owners and contexts | `type + id` value objects, compared exactly (`===`); no relation to your entities. |
-| Persistence | None in S1. From S3 subscriptions are bundle-owned rows written through DBAL in the bundle's own transaction; the bundle never flushes your EntityManager; events after commit. |
+| Owner, scope, access | `owner.resolver`, `scope.resolver`, `scope.access_checker`, `web_ui.security.access_checker`: your own services implementing the contract interfaces (`tests/Fixtures/Ddd/LedgerAccess.php` does all four in one class). |
+| Persistence | None in S1 / S2. From S3 subscriptions are bundle-owned rows written through DBAL in the bundle's own transaction; the bundle never flushes your EntityManager; events after commit. |
 
-`tests/Integration/Host/HostKindsTest.php` runs the same export path on both host kinds.
+`tests/Integration/Host/HostKindsTest.php` runs the same export path on both host kinds; `tests/Integration/Web/ReportPagesTest.php` and `DddHostPagesTest.php` run the pages on both.
 
 ## The closed PDF runner for other documents
 

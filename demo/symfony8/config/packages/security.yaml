@@ -1,0 +1,23 @@
+# Demo security: two in-memory users without passwords, signed in through the home page form (DemoSignInAuthenticator,
+# demo only). The report pages are private (REQ-UI-002): /reports needs ROLE_USER.
+security:
+    providers:
+        demo_users:
+            memory:
+                users:
+                    alice: { roles: ['ROLE_USER'] }
+                    bob: { roles: ['ROLE_USER'] }
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js|bundles)/
+            security: false
+        main:
+            lazy: true
+            provider: demo_users
+            custom_authenticators: [App\Security\DemoSignInAuthenticator]
+            entry_point: App\Security\DemoSignInAuthenticator
+            logout:
+                path: demo_sign_out
+                target: demo_home
+    access_control:
+        - { path: ^/reports, roles: ROLE_USER }

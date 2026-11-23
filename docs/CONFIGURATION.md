@@ -2,7 +2,7 @@
 
 Root key: `nowo_report_kit`. The tree is **strict** (REQ-SF-006): unknown keys and invalid values are refused at
 container build, and the message names the path and the allowed values. Every key of contract §7 is accepted from S0;
-the column *Used from* says which slice reads it. **`enabled: false` (the default) registers nothing**; `enabled: true`
+the column *Used from* says which slice reads it. **`enabled: false` (the default) registers no service** (only the route loader, which then loads no route); `enabled: true`
 registers the S1 services (report model, type registry, parameter resolver, renderers, closed PDF runner, brand
 resolver, exporter, download responder).
 
@@ -51,7 +51,7 @@ nowo_report_kit:
         path_prefix: '/reports'
         layout_template: null
         templates: { index: null, show: null, sections: null, schedule_dialog: null }
-        security: { access_roles: ['ROLE_USER'] }
+        security: { access_roles: ['ROLE_USER'], access_checker: null, allow_unauthenticated: false }
     admin_ui:
         enabled: false
         path_prefix: '/admin/report-subscriptions'
@@ -67,6 +67,22 @@ nowo_report_kit:
 | `doctrine`, `owner`, `subscriptions`, `schedule`, `mail`, `links`, `retention`, `messenger` | S3 |
 | `admin_ui`, the other `bridges` | S4 |
 | `api` | S6 |
+
+## Report pages security (REQ-UI-002)
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `web_ui.security.access_roles` | `['ROLE_USER']` | the signed-in user needs one of them to open the pages |
+| `web_ui.security.access_checker` | `null` | your `ReportKitAccessCheckerInterface` service instead of the role check |
+| `web_ui.security.allow_unauthenticated` | `false` | **demo / dev only**: open the pages without SecurityBundle or a signed-in user (one shared `guest:anonymous` owner) |
+| `scope.resolver` | `null` | your `ReportScopeResolverInterface`; null = no context |
+| `scope.access_checker` | `null` | your `ReportAccessCheckerInterface`; required as soon as a type declares a permission |
+| `owner.resolver` | `null` | your `OwnerResolverInterface`; null = `owner.type` + the user's `owner.id_field` (`get<Field>()`, `<field>()` or a public property) |
+| `limits.views` / `limits.exports` | 60 / minute, 20 / 10 minutes | per owner, in `limits.cache_pool` (sliding window; the host's `lock.factory` when it exists) |
+
+With `web_ui.enabled: true` the container refuses to build without UiKit, FormKit, Twig, the form component and, unless
+`allow_unauthenticated` is true, SecurityBundle. Add a firewall rule for `web_ui.path_prefix` too
+([USAGE.md](USAGE.md#report-pages-s2)).
 
 ## Format engines
 

@@ -10,9 +10,30 @@
 
 ## Status
 
-S1 (model + renderers, target 0.1.0): services only, still **no route, no table, no listener**. A host reaches the code
-by calling the ports (`ReportExporterInterface`, `PdfDocumentRendererInterface`, …) from its own controllers. The
-rendering safety below ships in S1; access control arrives with the pages in S2.
+S2 (pages, target 0.2.0): the report pages and export routes exist when `web_ui.enabled` is true (off by default); still
+**no table**. The rendering safety below ships since S1; the page access below since S2.
+
+### Report pages access (S2)
+
+- **Two layers (REQ-UI-002).** The host's firewall on `web_ui.path_prefix` and the bundle's guard on every action:
+  signed in (else the firewall's entry point), `web_ui.security.access_roles` or the host's
+  `ReportKitAccessCheckerInterface` (else 403), an owner reference (else 403). Without SecurityBundle the container
+  refuses to build the pages. **`allow_unauthenticated: true` is for demos only**: it opens the pages to one shared
+  `guest:anonymous` owner.
+- **Scope on every parameter.** `period` must be one of the type's periods (else its default); `context` must be one
+  of the contexts the scope resolver returned **and** the access checker granted (exact `type:id` comparison; else "all
+  accessible", flagged in the filters line and file name, never an error that tells whether it exists); extras go
+  through their `ParameterDefinition` (choice list, int bounds, bool, `Y-m-d`); unknown keys are dropped. The export
+  links are rebuilt from the resolved parameters, never copied from the request. The checker's answer is intersected
+  with the scope, and a `ReportAccessCheckEvent` grant opens the scope, never more. A type that is not granted is not
+  listed and its routes answer 403; an unknown type 404.
+- **Limits.** `limits.views` and `limits.exports` per owner (429 + `Retry-After`), counted before the build, so refused
+  attempts count too; at most 5,000 scope contexts per build; the page shows the PDF bounds (`pdf_max_rows`,
+  `pdf_max_cell`), the files keep `max_rows_per_section`; `render_seconds` and `max_pdf_html_bytes` answer 503.
+- **Output.** Every page value is escaped by Twig; charts are SVG images built from numbers and escaped labels; no
+  inline script or style. Exports keep the S1 guards (CSV formula prefix, XLSX string cells, closed Dompdf) and the
+  `no-store, private` attachment headers.
+
 
 ### Rendering safety (S1)
 
@@ -63,7 +84,8 @@ From contract §6. Each threat names the control that answers it and the slice t
 | Another person's subscription | Lookup by id **and** owner (404 otherwise), CSRF on every POST | S3 |
 | PDF server-side request forgery / code execution | Closed Dompdf: no remote, no JavaScript, no PHP, private per-call chroot removed in `finally`, images only as data URIs | S1 |
 | CSV / XLSX formula injection | Leading `=`, `+`, `-`, `@`, tab, CR prefixed with `'`; XLSX strings never written as formulas | S1 |
-| Resource exhaustion | Row, cell, render-time and HTML-size limits; export and view rate limits in the cache pool | S1, S2 |
+| Resource exhaustion | Row, cell, render-time and HTML-size limits; export and view rate limits in the cache pool; at most 5,000 scope contexts per build | S1, S2 |
+| Report pages open to anyone | Firewall rule + bundle guard (roles or host checker); no build without SecurityBundle unless the demo-only `allow_unauthenticated` | S2 |
 | Report content on the operator page | Operator sees owner, type, schedule and status only; never report content | S4 |
 | Collation (audit LQ) | Owner ids in `utf8mb4_bin`, PHP `===` re-check on subscriptions, export and erasure | S3 |
 | Worker-mode bleed | No report, owner or scope memo across requests; temp files per call; N-request test | S1–S3 |

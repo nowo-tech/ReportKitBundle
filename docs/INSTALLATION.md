@@ -37,8 +37,10 @@ return [
 
 ## Enable the bundle
 
-Nothing is registered while `nowo_report_kit.enabled` is false (the default). With `enabled: true` the S1 services are
-registered (see [USAGE.md](USAGE.md)); in both cases the bundle validates its configuration and publishes these
+No service is registered while `nowo_report_kit.enabled` is false (the default), except the route loader
+`nowo_report_kit_ui`, which then loads no route (the Flex recipe imports it in `config/routes/nowo_report_kit.yaml`).
+With `enabled: true` the S1 and S2 services are registered, and the report pages with `web_ui.enabled: true` (see
+[USAGE.md](USAGE.md#report-pages-s2)); in both cases the bundle validates its configuration and publishes these
 container parameters:
 
 | Parameter | Value |

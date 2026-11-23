@@ -1,0 +1,26 @@
+# Demo report types (the host's own domain; the bundle texts are in NowoReportKitBundle).
+report_type:
+    signups:
+        title: 'Signups per day'
+        description: 'New accounts per day and project, with the change against the previous period.'
+    orders_by_status:
+        title: 'Orders by status'
+        description: 'Orders per status and the latest orders of one project (needs the orders permission).'
+demo:
+    signups:
+        figures: 'Key figures'
+        total: 'Signups'
+        daily: 'Per day'
+        per_day: 'Signups per day'
+    orders:
+        channel: 'Channel'
+        by_status: 'Orders by status'
+        latest: 'Latest orders'
+        status:
+            paid: 'Paid'
+            shipped: 'Shipped'
+            refunded: 'Refunded'
+            cancelled: 'Cancelled'
+all: 'All channels'
+web: 'Web'
+store: 'Store'

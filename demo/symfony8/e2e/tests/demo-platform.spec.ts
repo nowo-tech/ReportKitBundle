@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { signIn } from './auth';
 
 /**
  * UiKit demo platform shell (REQ-DEMO-014): layout grammar, demo styles, host theme tokens, framework classes, the
@@ -9,7 +10,10 @@ import AxeBuilder from '@axe-core/playwright';
 type Theme = 'light' | 'dark';
 type PageEntry = string | ((page: Page) => Promise<string>);
 
-async function prepare(_page: Page): Promise<void> {}
+/** The report pages are private: every run signs in as alice first (she may open both demo types). */
+async function prepare(page: Page): Promise<void> {
+  await signIn(page, 'alice');
+}
 
 async function setTheme(page: Page, theme: Theme): Promise<void> {
   await page.evaluate((t) => {
@@ -101,7 +105,7 @@ function demoPlatformRules(): string[] {
 }
 
 
-const PAGES: PageEntry[] = ['/'];
+const PAGES: PageEntry[] = ['/', '/reports', '/reports/signups', '/reports/orders_by_status?period=7'];
 
 const BUNDLE_OWNED: Array<{ path: RegExp; rule: RegExp }> = [];
 

@@ -57,6 +57,14 @@ and run Messenger consumers (S3) with `--limit` / `--memory-limit`.
 | `Infrastructure\Rendering\{Csv,Xlsx,Json,Pdf}ReportRenderer`, `Pdf\DompdfDocumentRenderer` | None; engines per call, `RenderBudget` per call | ✅ |
 | `Infrastructure\Pdf\DompdfFontCacheWarmer`, `Twig\TemplateCheckWarmer` | Warmup only | ✅ |
 | `Presentation\Http\RenderedFileResponder` | None | ✅ |
+| `Application\ReportBuilder`, `Scope\NoContextScopeResolver`, `Access\UnconfiguredReportAccessChecker`, `Owner\PropertyOwnerResolver` (S2) | Injected services and configuration only; scope, access and owner are read per call | ✅ |
+| `Presentation\Http\ReportController`, `ReportKitGuard`, `ReportRateLimiter`, `Presentation\View\ScreenSections`, `Presentation\Form\ReportFilterType`, `Presentation\Routing\ReportRouteLoader` (S2) | None; the token is read per call, rate-limit counters live in the cache pool | ✅ |
+| `Infrastructure\Security\{Configurable,AllowAll}ReportKitAccessChecker`, `Infrastructure\Cache\PermissionCheckerWarmer` (S2) | Configuration only / warmup only | ✅ |
+| `Contract\Event\ReportAccessCheckEvent` (S2) | Mutable decision, one instance per build, never a service | ✅ |
+
+`tests/Integration/Web/WorkerPagesLoopTest.php` (S2): one kernel kept alive, 300 alternating list / page / CSV
+requests by two viewers in two locales; every answer holds only the viewer's own contexts and memory stays under
+4 MiB of growth.
 
 ## Rules for the next slices
 

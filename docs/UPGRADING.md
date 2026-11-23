@@ -2,10 +2,33 @@
 
 ## Table of contents
 
-- [Unreleased (S1)](#unreleased-s1)
+- [Unreleased (S2)](#unreleased-s2)
 - [To 0.1.0](#to-010)
 
-## Unreleased (S1)
+## Unreleased (S2)
+
+Additive. New required packages: `nowo-tech/ui-kit-bundle` ^2.68, `nowo-tech/form-kit-bundle` ^2.24,
+`symfony/form`, `symfony/rate-limiter`, `symfony/routing`, `symfony/security-core`, `symfony/event-dispatcher`.
+
+- New keys `web_ui.security.access_checker` (null) and `web_ui.security.allow_unauthenticated` (false).
+- **A report type that declares a permission now needs `scope.access_checker`**: without it every build of that type is
+  refused and `cache:warmup` fails with the list of those types.
+- The report pages are off until `web_ui.enabled: true`. Then register UiKit, FormKit and SecurityBundle, import the
+  routes and protect the prefix:
+
+  ```yaml
+  # config/routes/nowo_report_kit.yaml
+  nowo_report_kit:
+      resource: .
+      type: nowo_report_kit_ui
+  # config/packages/security.yaml
+  security:
+      access_control:
+          - { path: ^/reports, roles: ROLE_USER }
+  ```
+
+- No schema change (S2 has no table).
+
 
 ## To 0.1.0
 
