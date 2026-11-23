@@ -151,6 +151,8 @@ final readonly class ScheduledReportRunner
             return new RunResult(null, RunResult::DUPLICATE);
         }
 
+        // Read the row again now that this attempt holds the slot: a pause decided while the slot was being taken wins.
+        $row        = $this->store->find($id->value) ?? $row;
         $handedOver = false;
         try {
             return $this->attempt($row, $slot, $message, $started, $handedOver);
