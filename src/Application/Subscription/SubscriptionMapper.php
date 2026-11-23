@@ -16,7 +16,9 @@ use Nowo\ReportKitBundle\Contract\Schedule;
 use Nowo\ReportKitBundle\Contract\SubscriptionId;
 use Nowo\ReportKitBundle\Contract\SubscriptionView;
 use Nowo\ReportKitBundle\Domain\Subscription;
+use stdClass;
 
+use function get_object_vars;
 use function is_array;
 use function is_bool;
 use function is_int;
@@ -57,6 +59,10 @@ final class SubscriptionMapper
         $period  = $stored['period_days'] ?? null;
         $context = $stored['context'] ?? null;
         $extra   = $stored['extra'] ?? [];
+        if ($extra instanceof stdClass) {
+            // A row built in this process (create()) holds the extras as the JSON object it stores.
+            $extra = get_object_vars($extra);
+        }
         if (!is_int($period) || !is_array($extra)) {
             throw new InvalidReportArgumentException('The stored subscription parameters are damaged.');
         }

@@ -70,8 +70,14 @@ final readonly class Schedule
                 continue;
             }
             // A local time inside a spring-forward gap resolves to the first valid minute after it (PHP's rule); a
-            // repeated local hour resolves to its first occurrence, and the next candidate is a later day: it runs once.
-            $slot = new DateTimeImmutable(sprintf('%s %02d:00:00', $date->format('Y-m-d'), $this->hour), $zone);
+            // repeated local hour resolves to its first occurrence below, and the next candidate is a later day: it
+            // runs once.
+            $slot    = new DateTimeImmutable(sprintf('%s %02d:00:00', $date->format('Y-m-d'), $this->hour), $zone);
+            $earlier = (new DateTimeImmutable('@' . ($slot->getTimestamp() - 3600)))->setTimezone($zone);
+            if ($earlier->format('Y-m-d H:i') === $slot->format('Y-m-d H:i')) {
+                // A repeated local hour (fall back): PHP picks the second occurrence; the slot is the first.
+                $slot = $earlier;
+            }
             if ($slot->getTimestamp() > $limit) {
                 return $slot->setTimezone(new DateTimeZone('UTC'));
             }
