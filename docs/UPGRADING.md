@@ -3,9 +3,18 @@
 ## Table of contents
 
 - [Unreleased (S2)](#unreleased-s2)
+- [To 0.2.0](#to-020)
 - [To 0.1.0](#to-010)
 
 ## Unreleased (S2)
+
+## To 0.2.0
+
+From **0.1.0**:
+
+```bash
+composer update nowo-tech/report-kit-bundle
+```
 
 Additive. New required packages: `nowo-tech/ui-kit-bundle` ^2.68, `nowo-tech/form-kit-bundle` ^2.24,
 `symfony/form`, `symfony/rate-limiter`, `symfony/routing`, `symfony/security-core`, `symfony/event-dispatcher`.
@@ -28,7 +37,6 @@ Additive. New required packages: `nowo-tech/ui-kit-bundle` ^2.68, `nowo-tech/for
   ```
 
 - No schema change (S2 has no table).
-
 
 ## To 0.1.0
 

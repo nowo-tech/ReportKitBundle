@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-23
+
 ### Added
 
 - **S2 pages** (contract 221-C §4.2–4.3, §6.1, §6.4, §7.1, §8; target 0.2.0):
