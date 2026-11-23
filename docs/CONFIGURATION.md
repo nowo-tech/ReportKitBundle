@@ -9,6 +9,8 @@ resolver, exporter, download responder).
 ## Table of contents
 
 - [Full reference](#full-reference)
+- [Report pages security (REQ-UI-002)](#report-pages-security-req-ui-002)
+- [Subscriptions and scheduled runs (S3)](#subscriptions-and-scheduled-runs-s3)
 - [Format engines](#format-engines)
 - [Container parameters](#container-parameters)
 - [Validation rules](#validation-rules)
@@ -39,9 +41,11 @@ nowo_report_kit:
         pdf_max_cell: 180
         render_seconds: 25
         max_pdf_html_bytes: 5242880
-    subscriptions: { enabled: true, max_per_owner: 10, frequencies: [daily, weekly, monthly], default_hour: 7, allow_hour_choice: true }
+    subscriptions: { enabled: auto, max_per_owner: 10, frequencies: [daily, weekly, monthly], default_hour: 7, allow_hour_choice: true }
     schedule: { enabled: false, cron: '5 * * * *', default_timezone: UTC, batch: 200, max_failures: 3, stale_claim_minutes: 30 }
-    mail: { enabled: auto, template: '@NowoReportKit/email/scheduled_report.html.twig', max_attachment_bytes: 8388608 }
+    concurrency: { attempts: 3, lock_timeout_ms: 5000 }         # REQ-RUNTIME-003, docs/CONCURRENCY.md
+    conflict_response: { status: 409, retry_after: 1 }          # 409 or 503; Retry-After of CONFLICT_001
+    mail: { enabled: auto, template: '@NowoReportKit/email/scheduled_report.html.twig', max_attachment_bytes: 8388608, mailer: null, from: null }
     links: { base_url: null }                     # null = router default_uri
     retention: { run_days: 90, batch_size: 500 }
     messenger: { max_seconds: 50 }
@@ -64,7 +68,7 @@ nowo_report_kit:
 | --- | --- |
 | `enabled`, `types`, `formats`, `filename_prefix`, `temp_dir`, `brand`, `limits` (`max_rows_per_section`, `pdf_max_rows`, `pdf_max_cell`, `render_seconds`, `max_pdf_html_bytes`), `bridges.controller_kit`, `settings_provider`, `schedule.enabled` (read by the settings provider) | S1 |
 | `scope`, `web_ui`, `limits.cache_pool` / `exports` / `views` | S2 |
-| `doctrine`, `owner`, `subscriptions`, `schedule`, `mail`, `links`, `retention`, `messenger` | S3 |
+| `doctrine`, `owner.directory`, `subscriptions`, `schedule`, `concurrency`, `conflict_response`, `mail`, `links`, `retention`, `messenger`, `bridges.mail_kit` (readiness) | S3 |
 | `admin_ui`, the other `bridges` | S4 |
 | `api` | S6 |
 
@@ -83,6 +87,38 @@ nowo_report_kit:
 With `web_ui.enabled: true` the container refuses to build without UiKit, FormKit, Twig, the form component and, unless
 `allow_unauthenticated` is true, SecurityBundle. Add a firewall rule for `web_ui.path_prefix` too
 ([USAGE.md](USAGE.md#report-pages-s2)).
+
+## Subscriptions and scheduled runs (S3)
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `subscriptions.enabled` | `auto` | `auto`: on when DoctrineBundle is registered **and** an owner directory is configured (`owner.directory` or `owner.class`); `true` without them refuses to build; `false`: no table, route, handler or command |
+| `subscriptions.max_per_owner` | `10` | per owner, enforced under a per-owner lock row (REQ-RUNTIME-003) |
+| `subscriptions.frequencies` | daily, weekly, monthly | the choices of the schedule form |
+| `subscriptions.default_hour` / `allow_hour_choice` | `7` / `true` | the hour a new subscription starts with, in the owner's time zone (Q-O5) |
+| `owner.directory` | `null` | your `OwnerDirectoryInterface`; null = the Doctrine directory of `owner.class` |
+| `doctrine.entity_manager` | `default` | the entity manager (or DBAL connection) whose connection holds the tables; its mapping gets the bundle's when `auto_mapping` |
+| `doctrine.table_prefix` / `mapping` / `auto_mapping` | `nowo_` / `xml` / `true` | table and index name prefix; XML (plain domain classes) or the attribute twins; `false` = DDD host registers the XML itself |
+| `schedule.enabled` | `false` | the master switch of the runs (`schedulesEnabled()`): off = nothing is claimed; on = also the Scheduler schedule `nowo_report_kit` when `symfony/scheduler` is installed (needs `dragonmantank/cron-expression`) |
+| `schedule.cron` | `5 * * * *` | when the schedule enqueues `DispatchDueReportsMessage`; retention runs every night at 03:17 |
+| `schedule.default_timezone` | `UTC` | the time zone when the directory has none |
+| `schedule.batch` | `200` | due rows claimed per pass |
+| `schedule.max_failures` | `3` | failed runs in a row before the subscription pauses (`repeated_failure`) |
+| `schedule.stale_claim_minutes` | `30` | a claim or a run lease older than this may be taken over (crashed worker) |
+| `mail.enabled` | `auto` | `auto`: Symfony Mailer when `symfony/mailer` is installed; `false` (or not installed): every run is skipped with `mail_not_ready`, schedules kept |
+| `mail.mailer` | `null` | your `ReportMailerInterface` service |
+| `mail.from` | `null` | sender of the default mailer; null = `framework.mailer.headers` / envelope |
+| `mail.template` | `@NowoReportKit/email/scheduled_report.html.twig` | HTML body (a text twin is rendered from `@NowoReportKit/email/scheduled_report.txt.twig`); checked at `cache:warmup` |
+| `mail.max_attachment_bytes` | `8388608` | above it the files are dropped and the mail carries the link only |
+| `links.base_url` | `null` | absolute base of the links in the mail; null = `framework.router.default_uri`; never a request Host |
+| `retention.run_days` / `batch_size` | `90` / `500` | run rows older than this are deleted, per batch |
+| `messenger.max_seconds` | `50` | a dispatch or retention pass stops after this and re-dispatches the rest |
+| `concurrency.attempts` / `lock_timeout_ms` | `3` / `5000` | replays of a lock conflict; PostgreSQL `lock_timeout` |
+| `conflict_response.status` / `retry_after` | `409` / `1` | HTTP answer of a lock conflict (`X-Conflict-Code`) |
+| `bridges.mail_kit` | `auto` | MailKit's `OutboundMailReadinessInterface` decides `isReady()` of the default mailer |
+
+The schedule and subscription routes (`web_ui.enabled` and subscriptions on) need FormKit's CSRF forms
+(`framework.csrf_protection`) and a session for the token.
 
 ## Format engines
 
@@ -119,6 +155,7 @@ at runtime (`enabled()`, `formatsEnabled()`, `schedulesEnabled()`); it is read o
 | `nowo_report_kit.table_prefix` | `doctrine.table_prefix` |
 | `nowo_report_kit.config` | the processed tree |
 | `nowo_report_kit.formats` | (only when enabled) the formats switched on and installed, e.g. `['csv', 'xlsx', 'pdf']` |
+| `nowo_report_kit.subscriptions` | whether the subscriptions are on (see `subscriptions.enabled`) |
 
 ## Validation rules
 
@@ -134,3 +171,4 @@ at runtime (`enabled()`, `formatsEnabled()`, `schedulesEnabled()`); it is read o
   `formats.pdf.template` stops `cache:warmup` with the configuration path in the message.
 - `owner.class`: null or an existing class (audit ZE-I4).
 - `temp_dir`: null or a non-empty path; the directory must be writable at runtime (a clear error otherwise).
+- `mail.from`: null or an e-mail address. `conflict_response.status`: `409` or `503`.

@@ -1,13 +1,15 @@
 # Usage
 
-> **S2 (pages).** Report types, the parameter schema, the four renderers, the closed PDF runner and the brand resolver
-> (S1), plus the scope / access SPIs, the report builder and the report pages with export routes and rate limits (S2).
-> Subscriptions come in S3 (contract 221-C, [ROADMAP.md](ROADMAP.md)).
+> **S3 (subscriptions).** Report types, the parameter schema, the four renderers, the closed PDF runner and the brand
+> resolver (S1); the scope / access SPIs, the report builder and the report pages with export routes and rate limits
+> (S2); scheduled e-mail subscriptions built as the owner at run time, with their tables, schedule dialog, claim, run
+> log, mail, auto-pause, Messenger handlers, Scheduler recipe and commands (S3). Contract 221-C, [ROADMAP.md](ROADMAP.md).
 
 ## Table of contents
 
 - [In a standard Symfony application](#in-a-standard-symfony-application)
 - [Report pages (S2)](#report-pages-s2)
+- [Scheduled e-mail subscriptions (S3)](#scheduled-e-mail-subscriptions-s3)
 - [Using it from a DDD / hexagonal application](#using-it-from-a-ddd--hexagonal-application)
 - [The closed PDF runner for other documents](#the-closed-pdf-runner-for-other-documents)
 - [FrankenPHP worker mode](#frankenphp-worker-mode)
@@ -168,6 +170,111 @@
 The pages extend UiKit's list and show scaffolds; the filter form uses FormKit's `filter` profile and UiKit's form
 theme. Override the templates through `web_ui.templates.*` or the bundle override path ([TEMPLATES.md](TEMPLATES.md)).
 
+## Scheduled e-mail subscriptions (S3)
+
+A person schedules the report page they are looking at (its parameters) by e-mail: daily, weekly on a weekday or
+monthly on day 1–28, at an hour in a time zone (default `subscriptions.default_hour`, 07:00, in their own time zone,
+Q-O5). PDF is always attached when it is enabled (Q-O7), XLSX / CSV on request; the mail goes **only** to the owner's
+current address, in their locale, and every run builds the report **as the owner at that moment**.
+
+1. **Tables.** The bundle maps three tables (`<prefix>report_subscription`, `<prefix>report_run`,
+   `<prefix>report_owner_lock`, default prefix `nowo_`) in XML (default) or with attribute twins
+   (`doctrine.mapping: attribute`) and prepends the mapping on `doctrine.entity_manager` (standard hosts). Create them
+   with your usual tool (`doctrine:migrations:diff`, `doctrine:schema:update --dump-sql`). On MySQL / MariaDB the
+   identifier columns get a binary NO PAD collation; set `doctrine.dbal.server_version` with the full version
+   (`8.4.0`, `11.4.0-MariaDB`).
+
+2. **Owner directory.** A run needs the person behind the owner: the user object (for your scope resolver and access
+   checker), whether they are still active, their address, locale and time zone. The default reads your Doctrine
+   user class (`owner.class`, looked up by `owner.id_field`) with the conventional getters `getEmail()`,
+   `getLocale()`, `getTimezone()`, `isEnabled()` / `isActive()`, `getDisplayName()`; or plug your own
+   `OwnerDirectoryInterface` (`owner.directory`). A user without `isEnabled()` / `isActive()` counts as **active**, so
+   hosts with soft delete, bans or anonymisation must expose `isEnabled()` (or plug a directory). The default reads
+   through your entity manager, so a user it already manages is not refreshed within one pass of `dispatch-due --sync`
+   or one dispatch handler without a bus (Messenger clears the manager between messages); audit ZAD-I5.
+
+   When a person is deleted or anonymised, erase their rows: `SubscriptionsInterface::forgetOwner($owner)` or
+   `bin/console nowo:report-kit:forget-owner user <id>` (the UserKit eraser of S4 will call it). Prefer a non-reusable
+   `owner.id_field` (UUID / numeric id).
+
+   ```yaml
+   nowo_report_kit:
+       enabled: true
+       owner: { type: user, class: App\Entity\User, id_field: id }
+       subscriptions: { enabled: auto, max_per_owner: 10 }     # auto: on with DoctrineBundle and a directory
+       schedule: { enabled: true, cron: '5 * * * *', default_timezone: Europe/Madrid }
+       mail: { from: 'reports@example.com' }                  # or framework.mailer.headers.From
+       links: { base_url: 'https://app.example.com' }         # or framework.router.default_uri (a local host is logged as a warning)
+   ```
+
+3. **Running the schedule.** `schedule.enabled` is the master switch of the runs (`ReportSettingsProviderInterface::
+   schedulesEnabled()`). Either consume the bundle's Symfony Scheduler schedule (`messenger:consume
+   scheduler_nowo_report_kit`, needs `symfony/scheduler` + `dragonmantank/cron-expression`), or call the command from
+   your own scheduler:
+
+   ```bash
+   bin/console nowo:report-kit:dispatch-due        # claim the due slots, enqueue one RunScheduledReportMessage each
+   bin/console nowo:report-kit:dispatch-due --sync # run them in this process (small installs only)
+   bin/console nowo:report-kit:prune               # delete run rows older than retention.run_days
+   ```
+
+   Route the messages (REQ-MSG-001; scalars only, Serializer-friendly):
+
+   ```yaml
+   framework:
+       messenger:
+           transports:
+               async_maintenance:
+                   dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                   retry_strategy: { max_retries: 3, delay: 60000, multiplier: 2 }
+               failed: 'doctrine://default?queue_name=failed'
+           failure_transport: failed
+           routing:
+               Nowo\ReportKitBundle\Contract\Message\DispatchDueReportsMessage: async_maintenance
+               Nowo\ReportKitBundle\Contract\Message\RunScheduledReportMessage: async_maintenance
+               Nowo\ReportKitBundle\Contract\Message\PruneReportRunsMessage: async_maintenance
+   ```
+
+   | Message | Handler | Retries |
+   | --- | --- | --- |
+   | `DispatchDueReportsMessage` | claims ≤ `schedule.batch` due rows (atomic), enqueues one run each, re-dispatches the rest after `messenger.max_seconds` | safe: a claim is a conditional UPDATE |
+   | `RunScheduledReportMessage` | builds as the owner, renders, mails, records | a failure **before** the mail was handed over is rethrown (the transport retries; after `schedule.max_failures` in a row the subscription pauses with `repeated_failure`); once handed over the slot is never sent again |
+   | `PruneReportRunsMessage` | deletes old run rows in batches | safe |
+
+   Do **not** put the `doctrine_transaction` middleware on the bus that handles `RunScheduledReportMessage`: the runner
+   refuses to run inside a transaction (the mail would leave before the commit) and the message goes to the failure
+   transport. Without Messenger, `dispatch-due` runs the claimed slots itself.
+
+4. **What a run checks, every time.** The subscription is still enabled; the type still exists (else paused
+   `type_removed`); the directory has an active user with an address whose owner reference is exactly the
+   subscription's (else `owner_inactive`); the mailer is ready (MailKit's readiness when installed; else the run is
+   `skipped` with `mail_not_ready` and the schedule is kept, Q-O9); the builder's scope resolver, access checker and
+   `ReportAccessCheckEvent` (with `$scheduled = true`) grant the type (else `no_access`; zero contexts on a real scope
+   resolver fail closed unless explicitly granted, audit ZY-M1); and a subscribed context is still among the accessible
+   ones (else `no_access`: a run never widens to "all accessible"). Files over `mail.max_attachment_bytes` are dropped
+   and the mail carries the link only.
+
+5. **The pages.** With `web_ui.enabled`, the report page gets a *Schedule by e-mail* action and the list a
+   *Scheduled by e-mail* table with pause / resume / delete. Each opens **one** UiKit remote dialog that loads the
+   form on demand (no form per row): the link is the full page without JavaScript, the dialog sends `X-Nowo-Dialog: 1`
+   and gets the fragment, an invalid form answers 422 in place, a saved one `204` + `X-Nowo-Redirect`. The schedule
+   routes need FormKit's CSRF (`framework.csrf_protection`) and a session.
+
+   | Route | Path | Answer |
+   | --- | --- | --- |
+   | `nowo_report_kit_schedule` | `GET\|POST /reports/{type}/schedule?<report parameters>` | the schedule form; the parameters are resolved and access-checked again; a context the person cannot read is a form error |
+   | `nowo_report_kit_subscription_toggle` | `GET\|POST /reports/subscriptions/{id}/toggle` | pause / resume (own subscription only, 404 otherwise; CSRF per subscription; the version the page showed, 409 `SUBSCRIPTION_CHANGED` when it changed) |
+   | `nowo_report_kit_subscription_delete` | `GET\|POST /reports/subscriptions/{id}/delete` | delete (same rules) |
+
+6. **From code.** `SubscriptionsInterface` (`create()`, `ofOwner()`, `get()`, `setEnabled()`, `delete()`) does what
+   the pages do; check the owner's access first (the pages build through `ReportBuilderInterface::prepare()`).
+   Events after the commit: `ReportKitEvents::SUBSCRIPTION_CHANGED`, `SCHEDULED_REPORT_SENT`,
+   `SCHEDULED_REPORT_PAUSED` (the NotifyKit bell arrives with S4), `SCHEDULED_REPORT_FAILED`; ids only.
+
+7. **Your own mailer.** Implement `ReportMailerInterface` (`isReady()`, `send(ScheduledReportMail)`) and set
+   `mail.mailer`, or override the template (`mail.template`, variables `mail`, `report`, `brand`). Returning from
+   `send()` means "handed over": the run is `sent` and never sent again.
+
 ## Using it from a DDD / hexagonal application
 
 | Concern | How a strict DDD host does it |
@@ -178,9 +285,10 @@ theme. Override the templates through `web_ui.templates.*` or the bundle overrid
 | Runtime switches | `settings_provider`: your `ReportSettingsProviderInterface` service (formats on / off per call; no hard dependency on InstanceSettings). |
 | Owners and contexts | `type + id` value objects, compared exactly (`===`); no relation to your entities. |
 | Owner, scope, access | `owner.resolver`, `scope.resolver`, `scope.access_checker`, `web_ui.security.access_checker`: your own services implementing the contract interfaces (`tests/Fixtures/Ddd/LedgerAccess.php` does all four in one class). |
-| Persistence | None in S1 / S2. From S3 subscriptions are bundle-owned rows written through DBAL in the bundle's own transaction; the bundle never flushes your EntityManager; events after commit. |
+| Persistence | Bundle-owned rows (S3), written through DBAL in the bundle's own transaction on the connection of `doctrine.entity_manager`; the bundle never flushes, clears or resets an EntityManager; events after the commit. With `doctrine.auto_mapping: false`, register `src/Resources/config/doctrine` (type `xml`, prefix `Nowo\ReportKitBundle\Domain`) on your own entity manager and point `doctrine.entity_manager` at it. |
+| People | `owner.directory`: your `OwnerDirectoryInterface` (user object, active flag, address, locale, time zone), answered for exactly the owner asked for; `mail.mailer`: your `ReportMailerInterface`. |
 
-`tests/Integration/Host/HostKindsTest.php` runs the same export path on both host kinds; `tests/Integration/Web/ReportPagesTest.php` and `DddHostPagesTest.php` run the pages on both.
+`tests/Integration/Host/HostKindsTest.php` runs the same export path on both host kinds; `tests/Integration/Web/ReportPagesTest.php` and `DddHostPagesTest.php` run the pages on both; `tests/Integration/Database/{Standard,Ddd}Host{Subscriptions,Concurrency}Test.php` run the subscriptions, the runs and the race tests on both (XML `Member` on a second entity manager with its own directory for the DDD host).
 
 ## The closed PDF runner for other documents
 
@@ -211,4 +319,6 @@ never read. Do not declare `@font-face` in PDF templates (see [TEMPLATES.md](TEM
 No report, owner, scope or brand is memoised across requests; every Dompdf / OpenSpout instance and every temporary
 file lives inside one call (private directory removed in `finally`); Dompdf's static image cache and its global
 warning list are emptied after each render; the translator's locale is never changed (texts are translated with the
-report's locale explicitly). See [FRANKENPHP-WORKER-AUDIT.md](FRANKENPHP-WORKER-AUDIT.md).
+report's locale explicitly). A scheduled run switches to the owner's locale only through `LocaleSwitcher::runWithLocale()`,
+restored even when the run fails. Subscription writes are DBAL units opened and closed per call; nothing managed is
+kept. See [FRANKENPHP-WORKER-AUDIT.md](FRANKENPHP-WORKER-AUDIT.md).

@@ -33,4 +33,12 @@ test.describe('Report Kit screenshots', () => {
     await expect(page.getByTestId('report-kit-section').first()).toBeVisible();
     await frameShot(page, resolve(outDir, 'report-orders.png'));
   });
+
+  test('schedule by e-mail dialog (S3)', async ({ page }) => {
+    await signIn(page, 'alice');
+    await page.goto('/reports/signups?period=30');
+    await page.getByTestId('report-kit-schedule-open').click();
+    await expect(page.getByTestId('report-kit-dialog').getByLabel('Frequency')).toBeVisible();
+    await frameShot(page, resolve(outDir, 'schedule-dialog.png'));
+  });
 });

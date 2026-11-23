@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle\Tests\Integration\Web;
 
 use Closure;
+use Doctrine\Persistence\ManagerRegistry;
 use Nowo\ReportKitBundle\Tests\Fixtures\OrdersReportType;
 use Nowo\ReportKitBundle\Tests\Fixtures\Web\PersonalReportType;
 use Nowo\ReportKitBundle\Tests\Fixtures\Web\RevenueReportType;
@@ -44,7 +45,7 @@ abstract class WebKernelTestCase extends TestCase
      *
      * @param array<string, mixed> $config
      */
-    protected function bootTeam(array $config = [], bool $security = true): WebKernel
+    protected function bootTeam(array $config = [], bool $security = true, ?string $databaseUrl = null): WebKernel
     {
         return $this->bootWeb($config + ['scope' => ['resolver' => TeamScopeResolver::class, 'access_checker' => TeamAccessChecker::class]], static function (ContainerConfigurator $c): void {
             $s = $c->services();
@@ -53,7 +54,7 @@ abstract class WebKernelTestCase extends TestCase
             }
             $s->set(TeamScopeResolver::class);
             $s->set(TeamAccessChecker::class);
-        }, $security);
+        }, $security, [], $databaseUrl);
     }
 
     /**
@@ -61,14 +62,22 @@ abstract class WebKernelTestCase extends TestCase
      * @param (Closure(ContainerConfigurator): void)|null $services
      * @param list<class-string> $skipBundles
      */
-    protected function bootWeb(array $config = [], ?Closure $services = null, bool $security = true, array $skipBundles = []): WebKernel
+    protected function bootWeb(array $config = [], ?Closure $services = null, bool $security = true, array $skipBundles = [], ?string $databaseUrl = null): WebKernel
     {
         $id              = (string) preg_replace('/\W+/', '_', static::class . '_' . $this->name() . '_' . count($this->kernels));
-        $kernel          = new WebKernel($id, $config, $services, $security, $skipBundles);
+        $kernel          = new WebKernel($id, $config, $services, $security, $skipBundles, $databaseUrl);
         $this->kernels[] = $kernel;
         $kernel->boot();
 
         return $kernel;
+    }
+
+    protected function doctrine(WebKernel $kernel): ManagerRegistry
+    {
+        $doctrine = $kernel->getContainer()->get('doctrine');
+        self::assertInstanceOf(ManagerRegistry::class, $doctrine);
+
+        return $doctrine;
     }
 
     /**

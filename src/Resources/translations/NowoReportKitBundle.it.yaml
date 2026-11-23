@@ -42,6 +42,7 @@ show:
     context_fallback: 'Il contesto richiesto non è disponibile per te: il report copre tutti i contesti a cui hai accesso.'
     section_empty: 'Nessun dato per questo periodo.'
     legend: 'Legenda'
+    back_to_report: 'Torna al report'
 filter:
     title: 'Filtri'
     period: 'Periodo'
@@ -55,3 +56,84 @@ export:
     csv: 'Esporta CSV'
     xlsx: 'Esporta XLSX'
     pdf: 'Esporta PDF'
+schedule:
+    open: 'Programma via e-mail'
+    title: 'Programma via e-mail'
+    intro: 'Ricevi «%report%» via e-mail con i filtri attuali. Lo ricevi solo tu, generato con i tuoi accessi al momento dell’invio.'
+    submit: 'Programma'
+    frequency:
+        label: 'Frequenza'
+        daily: 'Ogni giorno'
+        weekly: 'Ogni settimana'
+        monthly: 'Ogni mese'
+    weekday:
+        label: 'Giorno della settimana'
+        1: 'lunedì'
+        2: 'martedì'
+        3: 'mercoledì'
+        4: 'giovedì'
+        5: 'venerdì'
+        6: 'sabato'
+        7: 'domenica'
+    month_day: 'Giorno del mese'
+    hour: 'Ora'
+    timezone: 'Fuso orario'
+    formats: 'Allega anche (il PDF è sempre allegato)'
+    format:
+        xlsx: 'Cartella XLSX'
+        csv: 'File CSV'
+    error:
+        limit: 'Hai già %limit% report programmati: eliminane uno prima.'
+        context: 'Il contesto selezionato non è disponibile per te: scegline un altro prima di programmare.'
+        invalid: 'Controlla la programmazione: un valore non è consentito.'
+subscriptions:
+    title: 'Programmati via e-mail'
+    intro: 'Report che ricevi via e-mail.'
+    empty: 'Non hai ancora report programmati: apri un report e scegli «Programma via e-mail».'
+    column:
+        report: 'Report'
+        parameters: 'Parametri'
+        schedule: 'Programmazione'
+        next_run: 'Prossimo invio'
+        status: 'Stato'
+    status:
+        enabled: 'Attivo'
+        paused:
+            owner: 'In pausa da te'
+            operator: 'In pausa da un amministratore'
+            owner_inactive: 'In pausa: il tuo account non è attivo'
+            no_access: 'In pausa: non hai più accesso'
+            type_removed: 'In pausa: il report non esiste più'
+            repeated_failure: 'In pausa dopo errori ripetuti'
+    last:
+        sent: 'ultimo inviato'
+        skipped: 'ultimo saltato'
+        failed: 'ultimo non riuscito'
+        paused: 'l’ultimo invio l’ha messo in pausa'
+    pause:
+        label: 'Metti in pausa'
+        title: 'Mettere in pausa questo report programmato?'
+        message: '«%report%» non verrà inviato finché non lo riprendi.'
+    resume:
+        label: 'Riprendi'
+        title: 'Riprendere questo report programmato?'
+        message: '«%report%» verrà inviato di nuovo dalla prossima fascia.'
+    delete:
+        label: 'Elimina'
+        title: 'Eliminare questo report programmato?'
+        message: '«%report%» non verrà più inviato. L’operazione non si può annullare.'
+    changed: 'Questo report programmato è cambiato nel frattempo (un invio o un’altra scheda lo ha aggiornato). Controllalo e riprova.'
+    schedule:
+        daily: 'Ogni giorno alle %hour%'
+        weekly: 'Ogni %weekday% alle %hour%'
+        monthly: 'Ogni mese il giorno %day% alle %hour%'
+    parameters: 'Ultimi %days% giorni'
+mail:
+    subject: 'Il tuo report: %title%'
+    greeting: 'Ciao %name%,'
+    greeting_anonymous: 'Ciao,'
+    attached: 'Il report è in allegato.'
+    too_large: 'I file sono troppo grandi per allegarli: apri il report per scaricarli.'
+    no_files: 'Apri il report per vederlo.'
+    open: 'Apri il report'
+    manage: 'Gestisci i tuoi report programmati'

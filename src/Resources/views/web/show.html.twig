@@ -2,8 +2,9 @@
   NowoReportKitBundle — report page (contract §8): header (title, summary, Export actions), filters line, the filter
   form (FormKit `filter` profile, GET) and the sections. Variables: page (UiKit ShowPage), report (Report), sections
   (ScreenSections items), filters (FormView), filters_action (URL), sections_template, context_fallback (bool: the
-  requested context is not available, the report covers every accessible context).
-  Blocks: report_kit_meta, report_kit_filters, report_kit_sections. Override with web_ui.templates.show or
+  requested context is not available, the report covers every accessible context), dialog_id (the schedule dialog
+  shell, null when subscriptions are off).
+  Blocks: report_kit_meta, report_kit_filters, report_kit_sections, report_kit_schedule_dialog. Override with web_ui.templates.show or
   {% extends '@!NowoReportKit/web/show.html.twig' %} (docs/TEMPLATES.md).
 #}
 {% extends '@NowoUiKitBundle/page/show.html.twig' %}
@@ -41,5 +42,11 @@
     {% endblock %}
     {% block report_kit_sections %}
         {{ include(sections_template, {sections: sections, bundle: _b}, false) }}
+    {% endblock %}
+    {% block report_kit_schedule_dialog %}
+        {#- S3: one empty remote dialog shell; the *Schedule by e-mail* action loads the schedule form into it on open -#}
+        {% if dialog_id|default(null) %}
+            {{ include(nowo_ui_partial('remote_form_dialog', _b), {id: dialog_id, size: 'md', title: 'schedule.title'|trans({}, _d), attr: {'data-testid': 'report-kit-dialog'}, bundle: _b}, false) }}
+        {% endif %}
     {% endblock %}
 {% endblock %}

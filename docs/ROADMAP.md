@@ -12,6 +12,7 @@ in the batch before 1.0.0.
 - [Owner decisions (2026-11-12)](#owner-decisions-2026-11-12)
 - [S1 notes (contract deviations)](#s1-notes-contract-deviations)
 - [S2 notes (contract deviations)](#s2-notes-contract-deviations)
+- [S3 notes (contract deviations)](#s3-notes-contract-deviations)
 - [Open questions for Beacon](#open-questions-for-beacon)
 
 ## Slices
@@ -20,8 +21,8 @@ in the batch before 1.0.0.
 | --- | --- | --- | --- | --- |
 | **S0** scaffold | `main`, no tag | Composer, Docker, Makefile + release-check, CI matrix (SQLite / MySQL / PostgreSQL job), PHPStan + worker rulesets, Igor, Rector, CS, coverage gate, Spec Kit baseline, docs set, `.github`, release / sync workflows, Flex recipe, demo skeleton (FrankenPHP worker, MySQL, Mailpit), strict config tree. **Then the owner registers the package on Packagist** | Batched | Released (on `main`, packaged in v0.1.0) |
 | **S1** model + renderers | 0.1.0 | `Report` / `ReportSection`, registry, parameter schema, CSV / XLSX / PDF / JSON renderers, SVG charts, `PdfDocumentRendererInterface`, brand resolver, limits | Batched | Released (v0.1.0, 2026-11-22, audit ZE + ZG) |
-| **S2** pages | 0.2.0 | Scope resolver + access checker SPIs, report list and page, export routes, rate limits, demo types | Batched | Built (PR `feat/s2-pages`, not tagged) |
-| **S3** subscriptions + runs | 0.3.0 | Tables + mapping, subscriptions service, schedule dialog, atomic claim, run log, runner as owner, mail, auto-pause, scheduler recipe, commands, events | **Immediate** | Not started |
+| **S2** pages | 0.2.0 | Scope resolver + access checker SPIs, report list and page, export routes, rate limits, demo types | Batched | Released (v0.2.0, 2026-11-23, audit ZY) |
+| **S3** subscriptions + runs | 0.3.0 | Tables + mapping, subscriptions service, schedule dialog, atomic claim, run log, runner as owner, mail, auto-pause, scheduler recipe, commands, events | **Immediate** | Built (PR `feat/s3-subscriptions`, not tagged; immediate SEC-004 audit pending) |
 | **S4** operator + GDPR | 0.4.0 | Operator page, AuditKit bridge, UserKit eraser + export, NotifyKit bridge, `forgetContext()` | Batched | Not started |
 | **S5** docs + i18n | 0.5.0 | Translations ×7, docs (USAGE, CONFIGURATION, UPGRADING, TEMPLATES, FRANKENPHP-WORKER-AUDIT, MIGRATION-FROM-BEACON), schema-check, reference DDL | Batched | Not started |
 | **S6** public API + 1.0 | 0.6.0 → **1.0.0** | `<prefix>/reports/v1` + OpenAPI (off by default), `bundle-req-audit` 100 %, SEC-004 batch audit S0–S6 | **Immediate** for the API | Not started |
@@ -29,29 +30,30 @@ in the batch before 1.0.0.
 
 ## Road to 1.0.0
 
-State on 2026-11-23: tag `v0.1.0` (S1 model and renderers, 2026-11-22). `main` equals the tag plus nothing runtime.
-No open pull request. S1 contract deviations 1 to 7 and the S1 decisions (PDF runner registered whenever Dompdf and
-Twig are installed, no XLSX `quotePrefix`) were accepted by the owner on 2026-11-22.
+State on 2026-11-23: tags `v0.1.0` (S1 model and renderers, 2026-11-22) and `v0.2.0` (S2 pages, 2026-11-23, audit
+ZY). S3 is built on `feat/s3-subscriptions` (PR open, not tagged); it needs the **immediate** REQ-SEC-004 audit before
+0.3.0. S1 contract deviations 1 to 7 and the S1 decisions (PDF runner registered whenever Dompdf and Twig are
+installed, no XLSX `quotePrefix`) were accepted by the owner on 2026-11-22.
 
 What is left:
 
-- **S2** (pages and export routes) is built on `feat/s2-pages` (PR open, not tagged); its contract deviations are in
-  [S2 notes](#s2-notes-contract-deviations).
-- **Slices S3 to S6** (not started): subscriptions and runs (owner-scoped scheduled mail), operator page and GDPR, docs
+- **S3** (subscriptions and runs) is built on `feat/s3-subscriptions`; its contract deviations are in
+  [S3 notes](#s3-notes-contract-deviations); audit ZAD (SHIP) findings fixed on the PR before the 0.3.0 tag.
+- **Slices S4 to S6** (not started): operator page and GDPR, docs
   and i18n, public API. S3 and the S6 API need an **immediate** REQ-SEC-004 audit before
   their tags; the other slices are audited in the batch.
 - **REQ gaps:** the last grade (2026-11-22) was done at S0 (`f5fc912`, no tag): 107 ok / 0 warn / 0 fail / 1 unknown
   (REQ-SEC-004) / 34 n/a. The unknown is covered by the appendices below; the checklist row still says "regrade needed"
   and a regrade at `v0.1.0` is due. Final `bundle-req-audit` at 100 % of the applicable REQs after S6.
 - **REQ-SEC-004:** appendix ZE (S0) and appendix ZG (0.1.0, S1, HOLD then GO after the re-check; Info items ZG-I2, I3, I5,
-  I9 to I11 open for later slices and docs). Nothing covers S2 to S6 yet (S2 goes to the batch audit).
+  I9 to I11 open for later slices and docs); appendix ZY (S2, 0.2.0). S3 needs its immediate audit; S4 to S6 are not built.
 - **Open Info items to carry:** ZG-I10 (document that a caller deadline should not exceed the request budget) and ZG-I11
   (sort share-bar slices by value) are docs notes.
 - **Owner decisions:** none open. Q-O1 to Q-O10 answered 2026-11-12; Beacon Q-B1 to Q-B5 answered as recommended.
   Dompdf worker leak notice to Beacon is the coordinator's task, not a bundle decision.
 - **Final gate:** `bundle-req-audit` at 100 %, then the REQ-SEC-004 batch audit over S0 to S6, then `1.0.0`.
 
-Distance to 1.0.0: large (S2 in review, four slices not started).
+Distance to 1.0.0: large (S3 built and waiting for its immediate audit, three slices not started).
 
 ## Owner decisions (2026-11-12)
 
@@ -113,6 +115,30 @@ Additive changes to the contract text, kept for review before 0.2.0:
 | Empty scope on a real scope resolver, `ReportRequest::$contextFreeGrant` | §4.1 "never empty when building"; §4.3 "only asked for types with a permission" | fail closed: a type with `context: true` is refused (403 `NO_CONTEXT`, not listed) to a person with zero contexts, permission or not, unless `allowsWithoutContext()` (now also asked for permission-less context types) or a listener's `grant()` opens it; that build carries `contextFreeGrant: true` | audit ZY-M1: a type could not tell "the host has no contexts" from "this person has none" and a new user saw every context's figures |
 | Report pages answer | not listed | the list counts under `limits.views`; HTML pages `no-store, private`; a type's limit or argument exception → 503; a scope over 5,000 contexts hides the type from the list | audit ZY-L2, ZY-L3, ZY-I3 |
 | `ParameterSchema::RESERVED` | `period`, `context`, `format` | adds `type` | audit ZY-I1: the export link's route `type` would drop an extra of that name |
+
+## S3 notes (contract deviations)
+
+Additive changes to the contract text, kept for review before 0.3.0:
+
+| Item | Contract | S3 | Why |
+| --- | --- | --- | --- |
+| `SubscriptionsInterface` | `create`, `ofOwner`, `setEnabled`, `delete`, `setEnabledAsOperator`, `page`, `forgetContext` | `create`, `ofOwner`, `get`, `setEnabled`, `delete` (with an optional `$expectedVersion`); the operator methods and `forgetContext()` in S4 | the pages need one subscription by id and owner; the optimistic version answers REQ-RUNTIME-003 for owner pauses that race a run; operator page and GDPR are S4 |
+| `SubscriptionView::$version`, `$lastErrorCode`, `$consecutiveFailures`, `$createdAt` | not listed | added (last, optional) | the pages post the version back; the list shows why a run failed or skipped |
+| `report_subscription.version`, `report_run.attempts`, `lease_at`, `lease_token`, `report_owner_lock` table | not listed | added | optimistic version (stale pause / delete → 409); a run lease that a Messenger retry or a stale worker can take over exactly once; the per-owner lock row that makes `max_per_owner` hold under concurrent creates (same pattern as ApiTokenBundle) |
+| Run row statuses | `sent \| skipped \| failed \| paused` | plus the transient `running` and `sending` | `sending` is written before the mailer is called, so a redelivery after the hand-over never sends twice |
+| `subscriptions.enabled` | `true` | `true \| false \| "auto"`, default `auto` (on with DoctrineBundle and an owner directory) | a 0.2 host without Doctrine or a directory keeps building; `true` without them refuses |
+| `mail.mailer`, `mail.from`, `concurrency.*`, `conflict_response.*` | not listed | new keys | own mailer; sender of the default mailer; REQ-RUNTIME-003 replay and conflict answer (same keys as ApiTokenBundle) |
+| `ReportMailerInterface::isReady()` | `send()` only | added | the readiness check of Q-O9 belongs to the mailer port (MailKit's readiness when installed) |
+| `OwnerDirectoryInterface` default | Doctrine resolver + UserKit adapter | Doctrine directory over `owner.class` with conventional getters; the UserKit adapter comes with the S4 bridges | no UserKit dependency in S3 |
+| MailKit `BrandedEmailHelper` | default mailer brands through it | not used in S3: the bundle template uses the report's brand (name, accent); MailKit readiness is used | Beacon keeps its own template through `mail.template` until MailKit phase 2 (Q-B5) |
+| NotifyKit bell on pause | §6.1 | `ScheduledReportPausedEvent` dispatched; the NotifyKit bridge is S4 | bridges are S4 |
+| Schedule and subscription routes | `POST` only | `GET` + `POST` on the same path | lazy dialogs (owner rule): the opener is a link to the page, the dialog loads the fragment on open; no form per row |
+| A requested context the person cannot read | the page falls back to "all accessible" | the schedule form refuses it (error before and after the POST); a run whose subscribed context is gone pauses `no_access` | a subscription must never silently widen its scope |
+| Runner inside a transaction | not listed | refused (`LogicException`, unrecoverable for Messenger) | Messenger's `doctrine_transaction` middleware would send the mail before the commit (REQ-RUNTIME-003 rule 7) |
+| Ambiguous local hour (fall back) | "a repeated hour runs once" | runs once, at the **first** occurrence | PHP resolves the wall time to the second occurrence; the bundle picks the earlier instant |
+| `schema-check` command, reference DDL | §5.3 | still S5 | as planned in the slices table |
+| `SubscriptionsInterface::forgetOwner()`, `nowo:report-kit:forget-owner` | eraser in S4 | added in S3 | audit ZAD-L2: hosts need an erasure path from the first release with tables |
+| Audit ZAD (2026-11-23) | — | SHIP; L1 (lease token per attempt), L2 (`forgetOwner`), I1 (lock at the hand-over), I5 / I6 / I7 (docs, local-link warning) fixed on the PR | before 0.3.0 |
 
 ## Open questions for Beacon
 

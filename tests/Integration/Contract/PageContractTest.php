@@ -14,12 +14,15 @@ use Nowo\UiKitBundle\View\Action;
 use Nowo\UiKitBundle\View\BackLink;
 use Nowo\UiKitBundle\View\Column;
 use Nowo\UiKitBundle\View\EmptyState;
+use Nowo\UiKitBundle\View\FormPage;
 use Nowo\UiKitBundle\View\Label;
 use Nowo\UiKitBundle\View\ListPage;
 use Nowo\UiKitBundle\View\PageHeader;
 use Nowo\UiKitBundle\View\ShowPage;
+use Nowo\UiKitBundle\View\Table;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\Forms;
 
 use function dirname;
@@ -39,6 +42,10 @@ final class PageContractTest extends PageContractTestCase
         yield 'report list (empty)' => new PageFixture('@NowoReportKit/web/index.html.twig', ['page' => self::index([])]);
         yield 'report page' => new PageFixture('@NowoReportKit/web/show.html.twig', self::show(true));
         yield 'report page (context fallback, no data)' => new PageFixture('@NowoReportKit/web/show.html.twig', self::show(false));
+        yield 'report page with the schedule dialog (S3)' => new PageFixture('@NowoReportKit/web/show.html.twig', ['dialog_id' => 'report-kit-dialog'] + self::show(true));
+        yield 'report list with subscriptions (S3)' => new PageFixture('@NowoReportKit/web/index.html.twig', ['page' => self::index([]), 'subscriptions' => new Table([new Column('report', self::label('subscriptions.column.report'))], [['report' => 'Orders']], caption: self::label('subscriptions.title'), bundle: self::DOMAIN), 'dialog_id' => 'report-kit-dialog']);
+        yield 'report list with no subscription (S3)' => new PageFixture('@NowoReportKit/web/index.html.twig', ['page' => self::index([]), 'subscriptions' => new Table([new Column('report')], [], bundle: self::DOMAIN), 'dialog_id' => 'report-kit-dialog']);
+        yield 'schedule page (S3)' => new PageFixture('@NowoReportKit/web/form.html.twig', self::schedule());
     }
 
     public function testReportPageRegions(): void
@@ -115,6 +122,23 @@ final class PageContractTest extends PageContractTestCase
             'filters_action'    => '/reports/orders',
             'sections_template' => '@NowoReportKit/web/_sections.html.twig',
             'context_fallback'  => !$data,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function schedule(): array
+    {
+        $form = Forms::createFormFactory()->createNamedBuilder('schedule', FormType::class, ['frequency' => 'daily'], ['translation_domain' => self::DOMAIN])
+            ->add('frequency', ChoiceType::class, ['label' => 'schedule.frequency.label', 'choices' => ['schedule.frequency.daily' => 'daily']])
+            ->getForm();
+        $form->addError(new FormError('limit'));
+
+        return [
+            'page'   => new FormPage(new PageHeader(self::label('schedule.title'), self::label('schedule.title'), back: new BackLink('/reports/orders', self::label('show.back_to_report'))), $form->createView(), self::label('schedule.submit'), '/reports/orders', bundle: self::DOMAIN, attributes: ['data-testid' => 'report-kit-schedule']),
+            'danger' => false,
+            'dialog' => false,
         ];
     }
 

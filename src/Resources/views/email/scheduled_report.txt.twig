@@ -1,0 +1,20 @@
+{#- NowoReportKitBundle — scheduled report mail, plain text twin (contract §6.3). Same variables as the HTML. -#}
+{%- set _d = 'NowoReportKitBundle' -%}
+{{ mail.recipientName ? 'mail.greeting'|trans({'%name%': mail.recipientName}, _d) : 'mail.greeting_anonymous'|trans({}, _d) }}
+
+{{ report.title }}
+{{ report.filters }}
+{% if report.summary %}
+{{ report.summary }}
+{% endif %}
+{% if report.glance %}
+{{ 'report.at_a_glance'|trans({}, _d) }} {{ report.glance }}
+{% endif %}
+
+{{ mail.attachmentsDropped ? 'mail.too_large'|trans({}, _d) : (mail.attachments is empty ? 'mail.no_files'|trans({}, _d) : 'mail.attached'|trans({}, _d)) }}
+{% if mail.reportUrl %}
+{{ 'mail.open'|trans({}, _d) }}: {{ mail.reportUrl }}
+{% endif %}
+{% if mail.subscriptionsUrl %}
+{{ 'mail.manage'|trans({}, _d) }}: {{ mail.subscriptionsUrl }}
+{% endif %}

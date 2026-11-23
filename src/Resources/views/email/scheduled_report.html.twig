@@ -1,0 +1,26 @@
+{#
+  NowoReportKitBundle — scheduled report mail, HTML (contract §6.3; mail.template). Rendered in the owner's locale.
+  Variables: mail (ScheduledReportMail), report (Report), brand {name, accent}. Every value is escaped by Twig; links
+  are absolute (links.base_url / default_uri). No report figures beyond the title, filters, summary and glance line:
+  the data travels in the attachments, or behind the sign-in of the link.
+#}
+{%- set _d = 'NowoReportKitBundle' -%}
+<!doctype html>
+<html lang="{{ mail.locale|replace({'_': '-'}) }}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ report.title }}</title></head>
+<body style="margin:0;padding:16px;background:#f5f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:8px;">
+    <tr><td style="padding:16px 24px;border-top:4px solid {{ brand.accent }};font-weight:bold;">{{ brand.name }}</td></tr>
+    <tr><td style="padding:8px 24px 24px;">
+        <p>{{ mail.recipientName ? 'mail.greeting'|trans({'%name%': mail.recipientName}, _d) : 'mail.greeting_anonymous'|trans({}, _d) }}</p>
+        <h1 style="font-size:20px;margin:0 0 8px;">{{ report.title }}</h1>
+        <p style="color:#52606d;margin:0 0 12px;">{{ report.filters }}</p>
+        {% if report.summary %}<p>{{ report.summary }}</p>{% endif %}
+        {% if report.glance %}<p><strong>{{ 'report.at_a_glance'|trans({}, _d) }}</strong> {{ report.glance }}</p>{% endif %}
+        <p>{{ mail.attachmentsDropped ? 'mail.too_large'|trans({}, _d) : (mail.attachments is empty ? 'mail.no_files'|trans({}, _d) : 'mail.attached'|trans({}, _d)) }}</p>
+        {% if mail.reportUrl %}<p><a href="{{ mail.reportUrl }}" style="color:{{ brand.accent }};">{{ 'mail.open'|trans({}, _d) }}</a></p>{% endif %}
+        {% if mail.subscriptionsUrl %}<p style="font-size:12px;color:#52606d;"><a href="{{ mail.subscriptionsUrl }}" style="color:#52606d;">{{ 'mail.manage'|trans({}, _d) }}</a></p>{% endif %}
+    </td></tr>
+</table>
+</body>
+</html>

@@ -42,6 +42,7 @@ show:
     context_fallback: 'De gevraagde context is niet voor u beschikbaar: het rapport omvat alle contexten waartoe u toegang hebt.'
     section_empty: 'Geen gegevens voor deze periode.'
     legend: 'Legenda'
+    back_to_report: 'Terug naar het rapport'
 filter:
     title: 'Filters'
     period: 'Periode'
@@ -55,3 +56,84 @@ export:
     csv: 'CSV exporteren'
     xlsx: 'XLSX exporteren'
     pdf: 'PDF exporteren'
+schedule:
+    open: 'Per e-mail plannen'
+    title: 'Per e-mail plannen'
+    intro: 'Ontvang „%report%” per e-mail met de huidige filters. Alleen jij ontvangt het, gemaakt met jouw toegang op het moment van verzenden.'
+    submit: 'Plannen'
+    frequency:
+        label: 'Frequentie'
+        daily: 'Elke dag'
+        weekly: 'Elke week'
+        monthly: 'Elke maand'
+    weekday:
+        label: 'Weekdag'
+        1: 'maandag'
+        2: 'dinsdag'
+        3: 'woensdag'
+        4: 'donderdag'
+        5: 'vrijdag'
+        6: 'zaterdag'
+        7: 'zondag'
+    month_day: 'Dag van de maand'
+    hour: 'Uur'
+    timezone: 'Tijdzone'
+    formats: 'Ook bijvoegen (PDF wordt altijd bijgevoegd)'
+    format:
+        xlsx: 'XLSX-werkmap'
+        csv: 'CSV-bestand'
+    error:
+        limit: 'Je hebt al %limit% geplande rapporten: verwijder er eerst een.'
+        context: 'De gekozen context is niet beschikbaar voor jou: kies een andere voordat je plant.'
+        invalid: 'Controleer de planning: een waarde is niet toegestaan.'
+subscriptions:
+    title: 'Gepland per e-mail'
+    intro: 'Rapporten die je per e-mail ontvangt.'
+    empty: 'Je hebt nog geen gepland rapport: open een rapport en kies „Per e-mail plannen”.'
+    column:
+        report: 'Rapport'
+        parameters: 'Parameters'
+        schedule: 'Planning'
+        next_run: 'Volgende verzending'
+        status: 'Status'
+    status:
+        enabled: 'Actief'
+        paused:
+            owner: 'Door jou gepauzeerd'
+            operator: 'Door een beheerder gepauzeerd'
+            owner_inactive: 'Gepauzeerd: je account is niet actief'
+            no_access: 'Gepauzeerd: je hebt geen toegang meer'
+            type_removed: 'Gepauzeerd: het rapport bestaat niet meer'
+            repeated_failure: 'Gepauzeerd na herhaalde fouten'
+    last:
+        sent: 'laatst verzonden'
+        skipped: 'laatst overgeslagen'
+        failed: 'laatst mislukt'
+        paused: 'de laatste run pauzeerde het'
+    pause:
+        label: 'Pauzeren'
+        title: 'Dit geplande rapport pauzeren?'
+        message: '„%report%” wordt niet verzonden totdat je het hervat.'
+    resume:
+        label: 'Hervatten'
+        title: 'Dit geplande rapport hervatten?'
+        message: '„%report%” wordt weer verzonden vanaf het volgende tijdstip.'
+    delete:
+        label: 'Verwijderen'
+        title: 'Dit geplande rapport verwijderen?'
+        message: '„%report%” wordt niet meer verzonden. Dit kan niet ongedaan worden gemaakt.'
+    changed: 'Dit geplande rapport is intussen gewijzigd (een run of een ander tabblad heeft het bijgewerkt). Controleer het en probeer opnieuw.'
+    schedule:
+        daily: 'Elke dag om %hour%'
+        weekly: 'Elke %weekday% om %hour%'
+        monthly: 'Elke maand op dag %day% om %hour%'
+    parameters: 'Laatste %days% dagen'
+mail:
+    subject: 'Je rapport: %title%'
+    greeting: 'Hallo %name%,'
+    greeting_anonymous: 'Hallo,'
+    attached: 'Het rapport is bijgevoegd.'
+    too_large: 'De bestanden zijn te groot om bij te voegen: open het rapport om ze te downloaden.'
+    no_files: 'Open het rapport om het te bekijken.'
+    open: 'Rapport openen'
+    manage: 'Je geplande rapporten beheren'

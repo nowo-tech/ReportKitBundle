@@ -6,11 +6,12 @@
 
 **Reports and scheduled exports for Symfony: report types with parameter schemas, PDF / XLSX / CSV / JSON renderers, server-side SVG charts, on-screen report pages and per-owner scheduled e-mail subscriptions.**
 
-> 🚧 **Status: S2 (pages), pre-1.0.** The package is built slice by slice from its design contract
+> 🚧 **Status: S3 (subscriptions), pre-1.0.** The package is built slice by slice from its design contract
 > ([docs/CONTRACT.md](docs/CONTRACT.md), 221-C). S1 shipped the report model, the type registry and parameter schema,
-> the CSV / XLSX / PDF / JSON renderers, SVG charts, the closed PDF runner and the brand resolver; S2 adds the scope and
-> access SPIs, the report builder and the report pages with their export routes and rate limits. Subscriptions, the
-> operator page and the API land with the next slices in [docs/ROADMAP.md](docs/ROADMAP.md).
+> the CSV / XLSX / PDF / JSON renderers, SVG charts, the closed PDF runner and the brand resolver; S2 the scope and
+> access SPIs, the report builder and the report pages with their export routes and rate limits; S3 adds the scheduled
+> e-mail subscriptions (tables, schedule dialog, claim, runs as the owner, mail, auto-pause, Messenger, Scheduler,
+> commands). The operator page, GDPR, bridges and the API land with the next slices in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 > 📋 **Compatible with Symfony 7.4, 8.0 and 8.1** · PHP 8.2+ (Symfony 8.x requires PHP 8.4+)
 
@@ -29,8 +30,9 @@ EntityManager.
 ## Features
 
 Available: the report model, the type registry with parameter schemas, every renderer, the SVG charts, the generic
-PDF runner (S1) and the report pages with scope / access SPIs, export routes and rate limits (S2). Planned (see the
-roadmap): subscriptions, operator page, bridges and the API.
+PDF runner (S1), the report pages with scope / access SPIs, export routes and rate limits (S2) and the scheduled e-mail
+subscriptions (S3, [USAGE](docs/USAGE.md#scheduled-e-mail-subscriptions-s3)). Planned (see the roadmap): operator page,
+GDPR, bridges and the API.
 
 - **Report model**: `Report` and `ReportSection` (key values with delta, tone and sparkline; tables with optional chart
   kind and presentation style; truncation note), badges, glance line, link.
@@ -102,9 +104,11 @@ Every key of the contract is already accepted (strict tree): [docs/CONFIGURATION
 
 ## Demo
 
-`demo/symfony8`: Symfony 8.1, FrankenPHP worker mode, MySQL, on http://localhost:8223 (`make -C demo up`). The demo shell is UiKit; sign in as `alice` or `bob` (demo users, no password) and open `/reports`. Run the Playwright e2e with `make test-e2e` and refresh the screenshots with `make demo-screenshots`.
+`demo/symfony8`: Symfony 8.1, FrankenPHP worker mode, MySQL, on http://localhost:8223 (`make -C demo up`), Mailpit on http://localhost:8224. The demo shell is UiKit; sign in as `alice` or `bob` (demo users, no password) and open `/reports`; schedule a report with *Schedule by e-mail*, then use *Send my due reports now* on the home page and read the mail in Mailpit. Run the Playwright e2e with `make test-e2e` and refresh the screenshots with `make demo-screenshots`.
 
 ![Report list of the demo](docs/images/demo/report-list.webp)
+
+![The Schedule by e-mail dialog (S3)](docs/images/demo/schedule-dialog.webp)
 
 ## Tests and coverage
 

@@ -42,6 +42,7 @@ show:
     context_fallback: 'O contexto pedido não está disponível para si: o relatório abrange todos os contextos a que tem acesso.'
     section_empty: 'Sem dados para este período.'
     legend: 'Legenda'
+    back_to_report: 'Voltar ao relatório'
 filter:
     title: 'Filtros'
     period: 'Período'
@@ -55,3 +56,84 @@ export:
     csv: 'Exportar CSV'
     xlsx: 'Exportar XLSX'
     pdf: 'Exportar PDF'
+schedule:
+    open: 'Agendar por e-mail'
+    title: 'Agendar por e-mail'
+    intro: 'Receba «%report%» por e-mail com os filtros atuais. Só você o recebe, gerado com os seus acessos no momento do envio.'
+    submit: 'Agendar'
+    frequency:
+        label: 'Frequência'
+        daily: 'Todos os dias'
+        weekly: 'Todas as semanas'
+        monthly: 'Todos os meses'
+    weekday:
+        label: 'Dia da semana'
+        1: 'segunda-feira'
+        2: 'terça-feira'
+        3: 'quarta-feira'
+        4: 'quinta-feira'
+        5: 'sexta-feira'
+        6: 'sábado'
+        7: 'domingo'
+    month_day: 'Dia do mês'
+    hour: 'Hora'
+    timezone: 'Fuso horário'
+    formats: 'Anexar também (o PDF é sempre anexado)'
+    format:
+        xlsx: 'Livro XLSX'
+        csv: 'Ficheiro CSV'
+    error:
+        limit: 'Já tem %limit% relatórios agendados: elimine um primeiro.'
+        context: 'O contexto selecionado não está disponível para si: escolha outro antes de agendar.'
+        invalid: 'Verifique o agendamento: um valor não é permitido.'
+subscriptions:
+    title: 'Agendados por e-mail'
+    intro: 'Relatórios que recebe por e-mail.'
+    empty: 'Ainda não tem relatórios agendados: abra um relatório e escolha «Agendar por e-mail».'
+    column:
+        report: 'Relatório'
+        parameters: 'Parâmetros'
+        schedule: 'Agendamento'
+        next_run: 'Próximo envio'
+        status: 'Estado'
+    status:
+        enabled: 'Ativo'
+        paused:
+            owner: 'Pausado por si'
+            operator: 'Pausado por um administrador'
+            owner_inactive: 'Pausado: a sua conta não está ativa'
+            no_access: 'Pausado: já não tem acesso'
+            type_removed: 'Pausado: o relatório já não existe'
+            repeated_failure: 'Pausado após falhas repetidas'
+    last:
+        sent: 'último enviado'
+        skipped: 'último ignorado'
+        failed: 'último falhou'
+        paused: 'o último envio pausou-o'
+    pause:
+        label: 'Pausar'
+        title: 'Pausar este relatório agendado?'
+        message: '«%report%» não será enviado até o retomar.'
+    resume:
+        label: 'Retomar'
+        title: 'Retomar este relatório agendado?'
+        message: '«%report%» voltará a ser enviado a partir do próximo horário.'
+    delete:
+        label: 'Eliminar'
+        title: 'Eliminar este relatório agendado?'
+        message: '«%report%» deixará de ser enviado. Não é possível anular.'
+    changed: 'Este relatório agendado mudou entretanto (um envio ou outro separador atualizou-o). Verifique e tente de novo.'
+    schedule:
+        daily: 'Todos os dias às %hour%'
+        weekly: 'Todas as semanas, %weekday%, às %hour%'
+        monthly: 'Todos os meses no dia %day% às %hour%'
+    parameters: 'Últimos %days% dias'
+mail:
+    subject: 'O seu relatório: %title%'
+    greeting: 'Olá %name%,'
+    greeting_anonymous: 'Olá,'
+    attached: 'O relatório segue em anexo.'
+    too_large: 'Os ficheiros são demasiado grandes para anexar: abra o relatório para os descarregar.'
+    no_files: 'Abra o relatório para o ver.'
+    open: 'Abrir o relatório'
+    manage: 'Gerir os seus relatórios agendados'

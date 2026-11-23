@@ -1,3 +1,6 @@
 doctrine:
   dbal:
     url: '%env(resolve:DATABASE_URL)%'
+  # S3: the ORM is only here so the bundle can prepend its XML mapping (schema tooling); the bundle writes through DBAL.
+  orm:
+    validate_xml_mapping: true

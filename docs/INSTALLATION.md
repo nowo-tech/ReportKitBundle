@@ -56,10 +56,14 @@ See [CONFIGURATION.md](CONFIGURATION.md) for every key.
 
 The bundle owns its tables and maps them in XML by default (plain domain classes, referenced by id). It ships **no
 Doctrine migration classes**: standard hosts run `php bin/console doctrine:migrations:diff` after an upgrade that adds
-or changes a table, and check the result against the reference DDL in this file (added with the first table, S1).
+or changes a table (the reference DDL per database and `nowo:report-kit:schema-check` come with S5).
 
-Identifier columns (owner, recipient, actor ids) use a binary collation (`utf8mb4_bin`) on MySQL / MariaDB, so ids
-compare exactly; PostgreSQL and SQLite compare exactly by default.
+S3 adds three tables while the subscriptions are on (`subscriptions.enabled`, `auto` = with DoctrineBundle and an owner
+directory): `<prefix>report_subscription`, `<prefix>report_run` (unique `(subscription_id, slot_at)`) and
+`<prefix>report_owner_lock`. Identifier columns (ids, owner type and id, type key, claim token) use a binary NO PAD
+collation on MySQL (`utf8mb4_0900_bin`) / MariaDB (`utf8mb4_nopad_bin`), so ids compare exactly; set
+`doctrine.dbal.server_version` with the full version (`8.4.0`, `11.4.0-MariaDB`). PostgreSQL and SQLite compare exactly
+by default. With MigrationsKitBundle installed, `nowo:migrations:check-key-collations` asserts them (REQ-SEC-006).
 
 DDD hosts set `doctrine.auto_mapping: false` and register the bundle's XML mapping on their own entity manager (see
 [USAGE.md](USAGE.md#using-it-from-a-ddd--hexagonal-application)).

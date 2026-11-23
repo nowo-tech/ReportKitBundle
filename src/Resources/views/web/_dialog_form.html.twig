@@ -1,0 +1,26 @@
+{#
+  NowoReportKitBundle — remote dialog fragment of the schedule form and of the pause / resume / delete confirmations
+  (S3, UiKit remote form dialog): the intro, the form errors (role="alert"), the fields and the actions row
+  (Cancel closes the dialog; the row moves into the dialog footer). A destructive confirmation puts the initial focus
+  on Cancel, the safe action; the schedule form on its first field. Override with web_ui.templates.schedule_dialog.
+  Variables: page (View\FormPage), danger (bool), dialog (true here).
+#}
+{%- set _b = page.bundle -%}
+{%- set form = page.form -%}
+{% form_theme form '@NowoUiKit/form/nowo_ui_layout.html.twig' %}
+<div data-testid="{{ page.attributes['data-testid'] ?? 'report-kit-dialog-form' }}">
+    {% if page.header.intro %}<p>{{ page.header.intro|nowo_ui_trans }}</p>{% endif %}
+    {{ form_start(form, {attr: {class: nowo_ui_class('form', _b)}}) }}
+        {%- if form.vars.errors|length > 0 -%}
+            <div role="alert" data-testid="report-kit-form-errors">{{ form_errors(form) }}</div>
+        {%- endif -%}
+        {% for child in form %}{% if not child.rendered %}{{ form_row(child) }}{% endif %}{% endfor %}
+        {{ include(nowo_ui_partial('form_actions', _b), {
+            submit_label: page.submitLabel,
+            submit_attrs: danger ? {'data-nowo-ui-variant': 'danger'} : {},
+            cancel_dialog: true,
+            cancel_attrs: danger ? {autofocus: true} : {},
+            bundle: _b,
+        }, false) }}
+    {{ form_end(form) }}
+</div>

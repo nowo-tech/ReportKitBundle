@@ -576,7 +576,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         }>,
  *     },
  *     mailer?: bool|array{ // Mailer configuration
- *         enabled?: bool|Param, // Default: false
+ *         enabled?: bool|Param, // Default: true
  *         message_bus?: scalar|Param|null, // The message bus to use. Defaults to the default bus if the Messenger component is installed. // Default: null
  *         dsn?: scalar|Param|null, // Default: null
  *         transports?: array<string, scalar|Param|null>,
@@ -646,7 +646,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         }>,
  *     },
  *     uid?: bool|array{ // Uid configuration
- *         enabled?: bool|Param, // Default: false
+ *         enabled?: bool|Param, // Default: true
  *         default_uuid_version?: 7|6|4|1|Param, // Default: 7
  *         name_based_uuid_version?: 5|3|Param, // Default: 5
  *         name_based_uuid_namespace?: scalar|Param|null,
@@ -1740,7 +1740,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         max_pdf_html_bytes?: int|Param, // Default: 5242880
  *     },
  *     subscriptions?: array{
- *         enabled?: bool|Param, // Default: true
+ *         enabled?: scalar|Param|null, // true, false or "auto" (on when DoctrineBundle is registered and owner.directory or owner.class is set); true without them refuses to build // Default: "auto"
  *         max_per_owner?: int|Param, // Default: 10
  *         frequencies?: list<"daily"|"weekly"|"monthly"|Param>,
  *         default_hour?: int|Param, // In the owner time zone (Q-O5) // Default: 7
@@ -1754,10 +1754,20 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         max_failures?: int|Param, // Default: 3
  *         stale_claim_minutes?: int|Param, // Default: 30
  *     },
+ *     concurrency?: array{ // Write units of the subscription store (REQ-RUNTIME-003, docs/CONCURRENCY.md)
+ *         attempts?: int|Param, // Tries of a unit the store opened, on lock conflicts (never replayed inside a host transaction) // Default: 3
+ *         lock_timeout_ms?: int|Param, // PostgreSQL lock_timeout of a transaction the store opens; 0 = the server default // Default: 5000
+ *     },
+ *     conflict_response?: array{ // HTTP answer to a lock conflict of the bundle's services (REQ-RUNTIME-003 rule 6)
+ *         status?: 409|503|Param, // 409 Conflict (platform default) or 503 Service Unavailable // Default: 409
+ *         retry_after?: int|Param, // Retry-After seconds of a CONFLICT_001 answer // Default: 1
+ *     },
  *     mail?: array{
  *         enabled?: scalar|Param|null, // true, false or "auto" (on when the integration is installed) // Default: "auto"
  *         template?: scalar|Param|null, // Default: "@NowoReportKit/email/scheduled_report.html.twig"
  *         max_attachment_bytes?: int|Param, // Default: 8388608
+ *         mailer?: scalar|Param|null, // ReportMailerInterface service; null = Symfony Mailer with mail.template // Default: null
+ *         from?: scalar|Param|null, // Sender address of the default mailer; null = the mailer's own default headers // Default: null
  *     },
  *     links?: array{
  *         base_url?: scalar|Param|null, // Default: null

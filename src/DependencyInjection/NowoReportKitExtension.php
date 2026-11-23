@@ -7,6 +7,7 @@ namespace Nowo\ReportKitBundle\DependencyInjection;
 use Closure;
 use Nowo\Brand\Contract\BrandAssetReaderInterface;
 use Nowo\Brand\Contract\BrandProviderInterface;
+use Nowo\FormKitBundle\Form\CsrfOnlyFormFactoryInterface;
 use Nowo\ReportKitBundle\Application\Access\UnconfiguredReportAccessChecker;
 use Nowo\ReportKitBundle\Application\Brand\DefaultReportBrandResolver;
 use Nowo\ReportKitBundle\Application\ConfigReportSettingsProvider;
@@ -16,7 +17,12 @@ use Nowo\ReportKitBundle\Application\Owner\PropertyOwnerResolver;
 use Nowo\ReportKitBundle\Application\ReportBuilder;
 use Nowo\ReportKitBundle\Application\ReportParametersResolver;
 use Nowo\ReportKitBundle\Application\ReportTypeRegistry;
+use Nowo\ReportKitBundle\Application\Run\DueReportsDispatcher;
+use Nowo\ReportKitBundle\Application\Run\RunRetention;
+use Nowo\ReportKitBundle\Application\Run\ScheduledReportRunner;
 use Nowo\ReportKitBundle\Application\Scope\NoContextScopeResolver;
+use Nowo\ReportKitBundle\Application\Subscription\Subscriptions;
+use Nowo\ReportKitBundle\Contract\OwnerDirectoryInterface;
 use Nowo\ReportKitBundle\Contract\OwnerResolverInterface;
 use Nowo\ReportKitBundle\Contract\PdfDocumentRendererInterface;
 use Nowo\ReportKitBundle\Contract\ReportAccessCheckerInterface;
@@ -24,29 +30,53 @@ use Nowo\ReportKitBundle\Contract\ReportBrandResolverInterface;
 use Nowo\ReportKitBundle\Contract\ReportBuilderInterface;
 use Nowo\ReportKitBundle\Contract\ReportExporterInterface;
 use Nowo\ReportKitBundle\Contract\ReportKitAccessCheckerInterface;
+use Nowo\ReportKitBundle\Contract\ReportMailerInterface;
 use Nowo\ReportKitBundle\Contract\ReportParametersResolverInterface;
 use Nowo\ReportKitBundle\Contract\ReportScopeResolverInterface;
 use Nowo\ReportKitBundle\Contract\ReportSettingsProviderInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
+use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
 use Nowo\ReportKitBundle\Infrastructure\Cache\PermissionCheckerWarmer;
+use Nowo\ReportKitBundle\Infrastructure\Collation\ReportKitExactKeyColumns;
+use Nowo\ReportKitBundle\Infrastructure\Console\DispatchDueCommand;
+use Nowo\ReportKitBundle\Infrastructure\Console\ForgetOwnerCommand;
+use Nowo\ReportKitBundle\Infrastructure\Console\PruneRunsCommand;
 use Nowo\ReportKitBundle\Infrastructure\Csv\BuiltInCsvCellGuard;
 use Nowo\ReportKitBundle\Infrastructure\Csv\ControllerKitCsvCellGuard;
+use Nowo\ReportKitBundle\Infrastructure\Doctrine\ReportKitMetadataListener;
 use Nowo\ReportKitBundle\Infrastructure\Filesystem\PrivateTempDirectory;
+use Nowo\ReportKitBundle\Infrastructure\Http\ReportKitConflictListener;
+use Nowo\ReportKitBundle\Infrastructure\Mail\DisabledReportMailer;
+use Nowo\ReportKitBundle\Infrastructure\Mail\SymfonyReportMailer;
+use Nowo\ReportKitBundle\Infrastructure\Messenger\DispatchDueReportsHandler;
+use Nowo\ReportKitBundle\Infrastructure\Messenger\PruneReportRunsHandler;
+use Nowo\ReportKitBundle\Infrastructure\Messenger\RunScheduledReportHandler;
+use Nowo\ReportKitBundle\Infrastructure\Owner\DoctrineOwnerDirectory;
 use Nowo\ReportKitBundle\Infrastructure\Pdf\DompdfDocumentRenderer;
 use Nowo\ReportKitBundle\Infrastructure\Pdf\DompdfFontCacheWarmer;
+use Nowo\ReportKitBundle\Infrastructure\Persistence\AfterCommitMiddleware;
+use Nowo\ReportKitBundle\Infrastructure\Persistence\AfterCommitQueue;
+use Nowo\ReportKitBundle\Infrastructure\Persistence\AfterCommitQueueResetListener;
+use Nowo\ReportKitBundle\Infrastructure\Persistence\DbalSubscriptionStore;
 use Nowo\ReportKitBundle\Infrastructure\Rendering\CsvReportRenderer;
 use Nowo\ReportKitBundle\Infrastructure\Rendering\JsonReportRenderer;
 use Nowo\ReportKitBundle\Infrastructure\Rendering\PdfReportRenderer;
 use Nowo\ReportKitBundle\Infrastructure\Rendering\XlsxReportRenderer;
+use Nowo\ReportKitBundle\Infrastructure\Scheduler\ReportKitScheduleProvider;
 use Nowo\ReportKitBundle\Infrastructure\Security\ConfigurableReportKitAccessChecker;
 use Nowo\ReportKitBundle\Infrastructure\Twig\TemplateCheckWarmer;
 use Nowo\ReportKitBundle\Presentation\Form\ReportFilterType;
+use Nowo\ReportKitBundle\Presentation\Form\ScheduleType;
 use Nowo\ReportKitBundle\Presentation\Http\RenderedFileResponder;
 use Nowo\ReportKitBundle\Presentation\Http\ReportController;
 use Nowo\ReportKitBundle\Presentation\Http\ReportKitGuard;
 use Nowo\ReportKitBundle\Presentation\Http\ReportRateLimiter;
+use Nowo\ReportKitBundle\Presentation\Http\SubscriptionController;
 use Nowo\ReportKitBundle\Presentation\Routing\ReportRouteLoader;
+use Nowo\ReportKitBundle\Presentation\Routing\RouterReportLinks;
+use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
+use Nowo\UiKitBundle\Dialog\RemoteDialogResponder;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Argument\TaggedIteratorArgument;
@@ -54,7 +84,9 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
+use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\CacheStorage;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -62,6 +94,8 @@ use Twig\Environment;
 
 use function class_exists;
 use function in_array;
+use function interface_exists;
+use function is_array;
 use function sprintf;
 
 /**
@@ -70,7 +104,7 @@ use function sprintf;
  * resolver, exporter, responder), the S2 builder (owner, scope and access SPIs) and, with `web_ui.enabled`, the report
  * pages. `enabled: false` (the default) registers nothing but the route loader, which then loads no route.
  */
-final class NowoReportKitExtension extends Extension
+final class NowoReportKitExtension extends Extension implements PrependExtensionInterface
 {
     /** Configuration root and extension alias. */
     public const ALIAS = 'nowo_report_kit';
@@ -88,6 +122,24 @@ final class NowoReportKitExtension extends Extension
         'pdf'  => ['Dompdf\\Dompdf', 'dompdf/dompdf'],
     ];
 
+    /** Doctrine mapping name of the bundle tables. */
+    public const MAPPING_NAME = 'NowoReportKitBundle';
+
+    /** Service id of the subscription store. */
+    public const STORE = 'nowo_report_kit.subscription_store';
+
+    /** MailKit's readiness port (optional bridge). */
+    public const MAIL_KIT_READINESS = 'Nowo\\MailKitBundle\\Readiness\\OutboundMailReadinessInterface';
+
+    /** Symfony Mailer (suggested). */
+    public const SYMFONY_MAILER = 'Symfony\\Component\\Mailer\\MailerInterface';
+
+    /** Symfony Scheduler (suggested). */
+    public const SCHEDULER = 'Symfony\\Component\\Scheduler\\RecurringMessage';
+
+    /** Cron expressions of the Scheduler recipe (suggested). */
+    public const CRON_EXPRESSION = 'Cron\\CronExpression';
+
     /** ControllerKit's CSV guard (Q-O4). */
     public const CONTROLLER_KIT_CSV = 'Nowo\\ControllerKitBundle\\Http\\CsvSafeWriter';
 
@@ -100,7 +152,7 @@ final class NowoReportKitExtension extends Extension
      */
     public function __construct(?callable $installed = null)
     {
-        $this->engineCheck = $installed === null ? static fn (string $class): bool => class_exists($class) : $installed(...);
+        $this->engineCheck = $installed === null ? static fn (string $class): bool => class_exists($class) || interface_exists($class) : $installed(...);
     }
 
     /**
@@ -109,6 +161,63 @@ final class NowoReportKitExtension extends Extension
     public function getAlias(): string
     {
         return self::ALIAS;
+    }
+
+    /**
+     * Standard hosts (`doctrine.auto_mapping: true`, the default): registers the XML mapping (or the attribute twins)
+     * on `doctrine.entity_manager` while the subscriptions are on and the host configures the ORM.
+     */
+    public function prepend(ContainerBuilder $container): void
+    {
+        if (!$container->hasExtension('doctrine')) {
+            return;
+        }
+        $config = $this->processConfiguration(new Configuration(), $container->getExtensionConfig(self::ALIAS));
+        if ($config['enabled'] !== true || !$config['doctrine']['auto_mapping'] || !self::subscriptionsOn($config, true)) {
+            return;
+        }
+        $hasOrm = false;
+        foreach ($container->getExtensionConfig('doctrine') as $doctrine) {
+            $hasOrm = $hasOrm || (is_array($doctrine) && isset($doctrine['orm']));
+        }
+        if (!$hasOrm) {
+            return;
+        }
+        $mapping = $config['doctrine']['mapping'] === 'attribute'
+            ? ['type' => 'attribute', 'dir' => __DIR__ . '/../Infrastructure/Doctrine/Entity', 'prefix' => 'Nowo\ReportKitBundle\Infrastructure\Doctrine\Entity']
+            : ['type' => 'xml', 'dir' => __DIR__ . '/../Resources/config/doctrine', 'prefix' => 'Nowo\ReportKitBundle\Domain'];
+        $container->prependExtensionConfig('doctrine', [
+            'orm' => ['entity_managers' => [$config['doctrine']['entity_manager'] => ['mappings' => [self::MAPPING_NAME => $mapping + ['is_bundle' => false]]]]],
+        ]);
+    }
+
+    /**
+     * Whether DoctrineBundle is registered (`load()` runs on a merge container that only knows the kernel's bundles).
+     */
+    private function hasDoctrine(ContainerBuilder $container): bool
+    {
+        $bundles = $container->hasParameter('kernel.bundles') ? $container->getParameter('kernel.bundles') : [];
+
+        return $container->hasExtension('doctrine') || (is_array($bundles) && isset($bundles['DoctrineBundle']));
+    }
+
+    /**
+     * Whether the subscriptions are on: `true`, or `auto` with DoctrineBundle and an owner directory (`owner.directory`
+     * or `owner.class`).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function subscriptionsOn(array $config, bool $doctrine): bool
+    {
+        /** @var array{enabled: bool|string} $subscriptions */
+        $subscriptions = $config['subscriptions'];
+        /** @var array{class: string|null, directory: string|null} $owner */
+        $owner = $config['owner'];
+        if ($subscriptions['enabled'] === true) {
+            return true;
+        }
+
+        return $subscriptions['enabled'] === ConfigNodes::AUTO && $doctrine && ($owner['directory'] !== null || $owner['class'] !== null);
     }
 
     /**
@@ -143,9 +252,18 @@ final class NowoReportKitExtension extends Extension
         $container->setParameter(self::ALIAS . '.api_prefix', $config['api']['prefix']);
         $container->setParameter(self::ALIAS . '.table_prefix', $config['doctrine']['table_prefix']);
         $container->setParameter(self::ALIAS . '.config', $config);
+        $doctrine      = $this->hasDoctrine($container);
+        $subscriptions = $config['enabled'] === true && self::subscriptionsOn($config, $doctrine);
+        if ($subscriptions && !$doctrine) {
+            throw new InvalidConfigurationException('"nowo_report_kit.subscriptions.enabled" is true but DoctrineBundle is not registered: the subscriptions are stored through Doctrine DBAL (install doctrine/doctrine-bundle, or set it to "auto" / false).');
+        }
+        if ($subscriptions && $config['owner']['directory'] === null && $config['owner']['class'] === null) {
+            throw new InvalidConfigurationException('"nowo_report_kit.subscriptions.enabled" is true but no owner directory is configured: set "nowo_report_kit.owner.directory" (an OwnerDirectoryInterface service) or "nowo_report_kit.owner.class" (the Doctrine user class), or set subscriptions.enabled to "auto" / false.');
+        }
+        $container->setParameter(self::ALIAS . '.subscriptions', $subscriptions);
         // Always registered, so a host (and the Flex recipe) can import the routes while the pages are off: no route then.
         $container->register('nowo_report_kit.web.route_loader', ReportRouteLoader::class)
-            ->setArguments([$config['enabled'] === true && $config['web_ui']['enabled'] === true, $config['web_ui']['path_prefix'], 'nowo_report_kit.web.controller'])
+            ->setArguments([$config['enabled'] === true && $config['web_ui']['enabled'] === true, $config['web_ui']['path_prefix'], 'nowo_report_kit.web.controller', $subscriptions ? 'nowo_report_kit.web.subscription_controller' : null])
             ->addTag('routing.loader');
         if ($config['enabled'] !== true) {
             return;
@@ -155,8 +273,11 @@ final class NowoReportKitExtension extends Extension
         $this->registerCore($container, $config, $formats);
         $this->registerRenderers($container, $config, $formats, $controllerKit !== false && $this->installed(self::CONTROLLER_KIT_CSV));
         $this->registerBuilder($container, $config);
+        if ($subscriptions) {
+            $this->registerSubscriptions($container, $config);
+        }
         if ($config['web_ui']['enabled'] === true) {
-            $this->registerWebUi($container, $config);
+            $this->registerWebUi($container, $config, $subscriptions);
         }
     }
 
@@ -267,7 +388,7 @@ final class NowoReportKitExtension extends Extension
      *
      * @param array<string, mixed> $config
      */
-    private function registerWebUi(ContainerBuilder $container, array $config): void
+    private function registerWebUi(ContainerBuilder $container, array $config, bool $subscriptions): void
     {
         $web      = $config['web_ui'];
         $security = $web['security'];
@@ -325,9 +446,213 @@ final class NowoReportKitExtension extends Extension
                 ],
                 $web['layout_template'],
                 new Reference('event_dispatcher', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+                $subscriptions ? new Reference(SubscriptionsInterface::class) : null,
+                new Reference('nowo_report_kit.type_registry'),
             ])
             ->addTag('controller.service_arguments');
 
+        if ($subscriptions) {
+            $container->register('nowo_report_kit.web.subscription_controller', SubscriptionController::class)
+                ->setPublic(true)
+                ->setArguments([
+                    new Reference('nowo_report_kit.web.guard'),
+                    new Reference('nowo_report_kit.web.rate_limiter'),
+                    new Reference('nowo_report_kit.builder'),
+                    new Reference(SubscriptionsInterface::class),
+                    new Reference('nowo_report_kit.type_registry'),
+                    new Reference(OwnerDirectoryInterface::class),
+                    new Reference('nowo_report_kit.settings_provider'),
+                    new Reference('form.factory'),
+                    new Reference(CsrfOnlyFormFactoryInterface::class),
+                    new Reference(RemoteDialogResponder::class),
+                    new Reference(Environment::class),
+                    new Reference('router'),
+                    new Reference(TranslatorInterface::class),
+                    [
+                        'page'     => '@NowoReportKit/web/form.html.twig',
+                        'fragment' => $templates['schedule_dialog'] ?? '@NowoReportKit/web/_dialog_form.html.twig',
+                    ],
+                    $config['subscriptions']['frequencies'],
+                    $config['subscriptions']['default_hour'],
+                    $config['subscriptions']['allow_hour_choice'],
+                    $config['schedule']['default_timezone'],
+                    $web['layout_template'],
+                ])
+                ->addTag('controller.service_arguments');
+            $container->register('nowo_report_kit.web.schedule_type', ScheduleType::class)->addTag('form.type');
+        }
+
+    }
+
+    /**
+     * S3: tables, store, subscriptions service, owner directory, mailer, runner, claim dispatcher, retention, Messenger
+     * handlers, commands, the Scheduler recipe and the conflict answer.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function registerSubscriptions(ContainerBuilder $container, array $config): void
+    {
+        /** @var array{entity_manager: string, table_prefix: string} $doctrine */
+        $doctrine  = $config['doctrine'];
+        $logger    = new Reference('logger', ContainerInterface::IGNORE_ON_INVALID_REFERENCE);
+        $clock     = new Reference(ClockInterface::class);
+        $events    = new Reference('event_dispatcher', ContainerInterface::NULL_ON_INVALID_REFERENCE);
+        $bus       = new Reference(MessageBusInterface::class, ContainerInterface::NULL_ON_INVALID_REFERENCE);
+        $messenger = interface_exists(MessageBusInterface::class);
+
+        $container->register(AfterCommitQueue::class, AfterCommitQueue::class)
+            ->setArguments([$logger])
+            ->addTag('kernel.reset', ['method' => 'reset']);
+        $reset = $container->register(AfterCommitQueueResetListener::class, AfterCommitQueueResetListener::class)
+            ->setArguments([new Reference(AfterCommitQueue::class)])
+            ->addTag('kernel.event_listener', ['event' => 'kernel.finish_request', 'method' => 'onFinishRequest', 'priority' => -1024])
+            ->addTag('kernel.event_listener', ['event' => 'kernel.terminate', 'method' => 'onBoundary', 'priority' => -1024])
+            ->addTag('kernel.event_listener', ['event' => 'console.terminate', 'method' => 'onBoundary', 'priority' => -1024]);
+        foreach (['Symfony\Component\Messenger\Event\WorkerMessageHandledEvent', 'Symfony\Component\Messenger\Event\WorkerMessageFailedEvent'] as $event) {
+            $reset->addTag('kernel.event_listener', ['event' => $event, 'method' => 'onBoundary', 'priority' => -1024]);
+        }
+        $container->register(AfterCommitMiddleware::class, AfterCommitMiddleware::class)
+            ->setArguments([new Reference(AfterCommitQueue::class)])
+            ->addTag('doctrine.middleware');
+        $container->register(ReportKitMetadataListener::class, ReportKitMetadataListener::class)
+            ->setArguments([$doctrine['table_prefix'], $logger])
+            ->addTag('doctrine.event_listener', ['event' => 'loadClassMetadata']);
+        $container->register(ReportKitExactKeyColumns::class, ReportKitExactKeyColumns::class)
+            ->setArguments([$doctrine['table_prefix']])
+            ->addTag('nowo_migrations_kit.exact_key_columns');
+
+        $container->register(self::STORE, DbalSubscriptionStore::class)->setArguments([
+            new Reference('doctrine'), new Reference(AfterCommitQueue::class), $doctrine['entity_manager'], $doctrine['table_prefix'], $logger,
+            $config['concurrency']['attempts'], $config['concurrency']['lock_timeout_ms'], $config['conflict_response']['retry_after'],
+        ]);
+        $store = new Reference(self::STORE);
+        $container->register('nowo_report_kit.conflict_policy', ConflictResponsePolicy::class)->setArguments([$config['conflict_response']['status'], $config['conflict_response']['retry_after']]);
+        $container->register(ReportKitConflictListener::class, ReportKitConflictListener::class)
+            ->setArguments([new Reference('nowo_report_kit.conflict_policy')])
+            ->addTag('kernel.event_listener', ['event' => 'kernel.exception', 'method' => 'onKernelException', 'priority' => ReportKitConflictListener::PRIORITY]);
+
+        $container->register('nowo_report_kit.subscriptions', Subscriptions::class)->setArguments([
+            $store, new Reference('nowo_report_kit.type_registry'), new Reference('nowo_report_kit.settings_provider'), $clock,
+            $config['subscriptions']['max_per_owner'], $config['subscriptions']['frequencies'], $events, $logger,
+        ]);
+        $container->setAlias(SubscriptionsInterface::class, 'nowo_report_kit.subscriptions')->setPublic(true);
+
+        /** @var array{type: string, class: class-string|null, id_field: string, directory: string|null} $owner */
+        $owner = $config['owner'];
+        if ($owner['directory'] !== null) {
+            $container->setAlias('nowo_report_kit.owner_directory', $owner['directory']);
+        } else {
+            $container->register('nowo_report_kit.owner_directory', DoctrineOwnerDirectory::class)
+                ->setArguments([new Reference('doctrine'), $owner['class'], $owner['id_field'], $owner['type']]);
+        }
+        $container->setAlias(OwnerDirectoryInterface::class, 'nowo_report_kit.owner_directory')->setPublic(true);
+
+        $this->registerMailer($container, $config);
+
+        $container->register('nowo_report_kit.links', RouterReportLinks::class)->setArguments([
+            new Reference('router'),
+            $config['web_ui']['enabled'] === true,
+            $config['links']['base_url'],
+            '%router.request_context.base_url%',
+            '%router.request_context.host%',
+            '%router.request_context.scheme%',
+            $logger,
+        ]);
+        $container->register('nowo_report_kit.runner', ScheduledReportRunner::class)->setArguments([
+            $store,
+            new Reference('nowo_report_kit.type_registry'),
+            new Reference('nowo_report_kit.builder'),
+            new Reference('nowo_report_kit.exporter'),
+            new Reference(OwnerDirectoryInterface::class),
+            new Reference('nowo_report_kit.owner_resolver'),
+            new Reference(ReportMailerInterface::class),
+            new Reference('nowo_report_kit.links'),
+            $clock,
+            $config['schedule']['max_failures'],
+            $config['schedule']['stale_claim_minutes'],
+            $config['mail']['max_attachment_bytes'],
+            new Reference('translation.locale_switcher', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+            $events,
+            $logger,
+        ]);
+        $container->setAlias(ScheduledReportRunner::class, 'nowo_report_kit.runner')->setPublic(true);
+        $container->register('nowo_report_kit.dispatcher', DueReportsDispatcher::class)->setArguments([
+            $store, new Reference('nowo_report_kit.settings_provider'), $clock, $config['schedule']['batch'], $config['schedule']['stale_claim_minutes'], $config['messenger']['max_seconds'], $logger,
+        ]);
+        $container->setAlias(DueReportsDispatcher::class, 'nowo_report_kit.dispatcher')->setPublic(true);
+        $container->register('nowo_report_kit.retention', RunRetention::class)->setArguments([
+            $store, $clock, $config['retention']['run_days'], $config['retention']['batch_size'], $config['messenger']['max_seconds'],
+        ]);
+        $container->setAlias(RunRetention::class, 'nowo_report_kit.retention')->setPublic(true);
+
+        // Registered from their #[AsCommand] / #[AsMessageHandler] attributes (REQ-SF-003): autoconfiguration tags them.
+        $container->register(DispatchDueCommand::class, DispatchDueCommand::class)
+            ->setAutoconfigured(true)
+            ->setArguments([new Reference('nowo_report_kit.dispatcher'), new Reference('nowo_report_kit.runner'), $messenger ? $bus : null]);
+        $container->register(ForgetOwnerCommand::class, ForgetOwnerCommand::class)
+            ->setAutoconfigured(true)
+            ->setArguments([new Reference(SubscriptionsInterface::class)]);
+        $container->register(PruneRunsCommand::class, PruneRunsCommand::class)
+            ->setAutoconfigured(true)
+            ->setArguments([new Reference('nowo_report_kit.retention')]);
+        if ($messenger) {
+            $container->register(DispatchDueReportsHandler::class, DispatchDueReportsHandler::class)
+                ->setAutoconfigured(true)
+                ->setArguments([new Reference('nowo_report_kit.dispatcher'), new Reference('nowo_report_kit.runner'), $bus]);
+            $container->register(RunScheduledReportHandler::class, RunScheduledReportHandler::class)
+                ->setAutoconfigured(true)
+                ->setArguments([new Reference('nowo_report_kit.runner')]);
+            $container->register(PruneReportRunsHandler::class, PruneReportRunsHandler::class)
+                ->setAutoconfigured(true)
+                ->setArguments([new Reference('nowo_report_kit.retention'), $bus, $logger]);
+        }
+        if ($config['schedule']['enabled'] === true && $this->installed(self::SCHEDULER)) {
+            if (!$this->installed(self::CRON_EXPRESSION)) {
+                throw new InvalidConfigurationException('"nowo_report_kit.schedule.enabled" registers a Symfony Scheduler schedule, which needs dragonmantank/cron-expression: run "composer require dragonmantank/cron-expression" (or run nowo:report-kit:dispatch-due from your own scheduler).');
+            }
+            $container->register(ReportKitScheduleProvider::class, ReportKitScheduleProvider::class)
+                ->setArguments([$config['schedule']['cron']])
+                ->addTag('scheduler.schedule_provider', ['name' => ReportKitScheduleProvider::NAME]);
+        }
+    }
+
+    /**
+     * `mail.mailer`, else Symfony Mailer (`mail.enabled`: true needs symfony/mailer; auto follows the install), else a
+     * mailer that is never ready (every run skips with `mail_not_ready`).
+     *
+     * @param array<string, mixed> $config
+     */
+    private function registerMailer(ContainerBuilder $container, array $config): void
+    {
+        /** @var array{enabled: bool|string, template: string, mailer: string|null, from: string|null} $mail */
+        $mail = $config['mail'];
+        if ($mail['mailer'] !== null) {
+            $container->setAlias(ReportMailerInterface::class, $mail['mailer'])->setPublic(true);
+
+            return;
+        }
+        $installed = $this->installed(self::SYMFONY_MAILER);
+        if ($mail['enabled'] === true && !$installed) {
+            throw new InvalidConfigurationException('"nowo_report_kit.mail.enabled" is true but symfony/mailer is not installed: run "composer require symfony/mailer", set "mail.mailer", or set it to "auto".');
+        }
+        if ($mail['enabled'] === false || !$installed) {
+            $container->register('nowo_report_kit.mailer', DisabledReportMailer::class);
+        } else {
+            $mailKit = $config['bridges']['mail_kit'] !== false && interface_exists(self::MAIL_KIT_READINESS);
+            $container->register('nowo_report_kit.mailer', SymfonyReportMailer::class)->setArguments([
+                new Reference('mailer.mailer'),
+                new Reference(Environment::class),
+                new Reference(TranslatorInterface::class),
+                new Reference('nowo_report_kit.brand_resolver'),
+                $mail['template'],
+                $mail['from'],
+                $mailKit ? new Reference(self::MAIL_KIT_READINESS, ContainerInterface::NULL_ON_INVALID_REFERENCE) : null,
+            ]);
+            $container->register('nowo_report_kit.mail_template_check_warmer', TemplateCheckWarmer::class)
+                ->setArguments([new Reference(Environment::class), ['mail.template' => $mail['template']]])
+                ->addTag('kernel.cache_warmer');
+        }
+        $container->setAlias(ReportMailerInterface::class, 'nowo_report_kit.mailer')->setPublic(true);
     }
 
     /**

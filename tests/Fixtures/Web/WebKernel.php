@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle\Tests\Fixtures\Web;
 
 use Closure;
+use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Nowo\FormKitBundle\NowoFormKitBundle;
 use Nowo\ReportKitBundle\NowoReportKitBundle;
+use Nowo\ReportKitBundle\Tests\Fixtures\Subscription\MemoryDirectory;
+use Nowo\ReportKitBundle\Tests\Fixtures\Subscription\RecordingMailer;
 use Nowo\UiKitBundle\NowoUiKitBundle;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
@@ -36,6 +39,8 @@ final class WebKernel extends Kernel
      * @param (Closure(ContainerConfigurator): void)|null $services extra host services
      * @param bool $security register SecurityBundle
      * @param list<class-string> $skipBundles bundles to leave out (requirements tests)
+     * @param string|null $databaseUrl S3: DoctrineBundle (ORM) on this URL, sessions and CSRF, subscriptions on with the
+     *                                 {@see MemoryDirectory} and {@see RecordingMailer} services; null = no subscriptions
      */
     public function __construct(
         private readonly string $id,
@@ -43,6 +48,7 @@ final class WebKernel extends Kernel
         private readonly ?Closure $services = null,
         private readonly bool $security = true,
         private readonly array $skipBundles = [],
+        private readonly ?string $databaseUrl = null,
     ) {
         parent::__construct('test', false);
     }
@@ -56,6 +62,9 @@ final class WebKernel extends Kernel
         }
         if ($this->security) {
             yield new SecurityBundle();
+        }
+        if ($this->databaseUrl !== null) {
+            yield new DoctrineBundle();
         }
     }
 
@@ -91,9 +100,14 @@ final class WebKernel extends Kernel
             'default_locale'        => 'en',
             'translator'            => ['enabled' => true, 'fallbacks' => ['en']],
             'form'                  => ['enabled' => true],
-            'csrf_protection'       => false,
+            'csrf_protection'       => $this->databaseUrl !== null,
             'rate_limiter'          => ['enabled' => true],
-        ]);
+        ] + ($this->databaseUrl !== null ? ['session' => ['storage_factory_id' => 'session.storage.factory.mock_file']] : []));
+        if ($this->databaseUrl !== null) {
+            $container->extension('doctrine', ['dbal' => ['url' => $this->databaseUrl], 'orm' => []]);
+            $container->services()->set(MemoryDirectory::class)->public()->call('add', ['alice'])->call('add', ['bob'])->call('add', ['newbie'])->call('add', ['root']);
+            $container->services()->set(RecordingMailer::class)->public();
+        }
         $container->extension('twig', ['strict_variables' => true]);
         if ($this->security) {
             $container->extension('security', [
@@ -112,6 +126,11 @@ final class WebKernel extends Kernel
         $config += ['enabled' => true];
         $config['owner']  = ($config['owner'] ?? []) + ['id_field' => 'userIdentifier'];
         $config['web_ui'] = ($config['web_ui'] ?? []) + ['enabled' => true];
+        if ($this->databaseUrl !== null) {
+            $config['subscriptions'] = ($config['subscriptions'] ?? []) + ['enabled' => true];
+            $config['owner'] += ['directory' => MemoryDirectory::class];
+            $config['mail'] = ($config['mail'] ?? []) + ['mailer' => RecordingMailer::class];
+        }
         $container->extension('nowo_report_kit', $config);
         $container->services()->set('logger', NullLogger::class);
         if ($this->services instanceof Closure) {
