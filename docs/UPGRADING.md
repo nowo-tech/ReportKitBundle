@@ -3,10 +3,19 @@
 ## Table of contents
 
 - [Unreleased (S3, to 0.3.0)](#unreleased-s3-to-030)
+- [To 0.3.0](#to-030)
 - [To 0.2.0](#to-020)
 - [To 0.1.0](#to-010)
 
 ## Unreleased (S3, to 0.3.0)
+
+## To 0.3.0
+
+From **0.2.0**:
+
+```bash
+composer update nowo-tech/report-kit-bundle
+```
 
 From **0.2.0**:
 
@@ -78,7 +87,6 @@ Additive. New required packages: `nowo-tech/ui-kit-bundle` ^2.68, `nowo-tech/for
   ```
 
 - No schema change (S2 has no table).
-
 
 ## To 0.1.0
 

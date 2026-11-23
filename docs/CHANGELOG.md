@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
 ### Added
 
 - **S3 subscriptions and scheduled runs** (contract 221-C §4.1–4.3, §5, §6.1, §6.3–6.5, §9, §11; target 0.3.0):
