@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle\Application\Run;
 
 use DateTimeZone;
+use Nowo\ReportKitBundle\Application\Identity\RandomIdGenerator;
 use Nowo\ReportKitBundle\Application\Subscription\SubscriptionMapper;
 use Nowo\ReportKitBundle\Contract\Exception\InvalidReportArgumentException;
 use Nowo\ReportKitBundle\Contract\Message\DispatchDueReportsMessage;
 use Nowo\ReportKitBundle\Contract\Message\RunScheduledReportMessage;
 use Nowo\ReportKitBundle\Contract\ReportSettingsProviderInterface;
+use Nowo\ReportKitBundle\Domain\IdGeneratorInterface;
 use Nowo\ReportKitBundle\Domain\SubscriptionStoreInterface;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Symfony\Component\Uid\Uuid;
 
 use function count;
 
@@ -43,6 +44,7 @@ final readonly class DueReportsDispatcher
         private int $staleClaimMinutes = 30,
         private int $maxSeconds = 50,
         private ?LoggerInterface $logger = null,
+        private ?IdGeneratorInterface $ids = null,
     ) {
     }
 
@@ -77,7 +79,7 @@ final readonly class DueReportsDispatcher
 
                 continue;
             }
-            $token = (string) Uuid::v7();
+            $token = $this->ids()->next();
             $stale = $now->modify('-' . $this->staleClaimMinutes . ' minutes');
             $won   = $this->store->transactional(fn (): bool => $this->store->claim($row->id, $row->nextRunAt, $next, $token, $now, $stale));
             if ($won) {
@@ -88,5 +90,14 @@ final readonly class DueReportsDispatcher
 
         // A full batch may have more due rows after it.
         return new DispatchPass($runs, count($rows) >= $this->batch ? new DispatchDueReportsMessage($last) : null, $scanned);
+    }
+
+    /**
+     * The id generator (the container wires the symfony/uid UUIDv7 one; a hand-built service falls back to
+     * {@see RandomIdGenerator}).
+     */
+    private function ids(): IdGeneratorInterface
+    {
+        return $this->ids ?? new RandomIdGenerator();
     }
 }

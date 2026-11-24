@@ -8,7 +8,7 @@ use Nowo\FormKitBundle\Attribute\FormKitConfig;
 use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Nowo\ReportKitBundle\Contract\ParameterDefinition;
 use Nowo\ReportKitBundle\Contract\ParameterType;
-use Nowo\ReportKitBundle\NowoReportKitBundle;
+use Nowo\ReportKitBundle\Contract\TranslationDomain;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
@@ -59,7 +59,7 @@ final class ReportFilterType extends AbstractType
                 match ($definition->type) {
                     ParameterType::Choice => $this->addTypedField($name, ChoiceType::class, $common + ['choices' => array_combine($definition->choices, $definition->choices), 'placeholder' => false]),
                     ParameterType::Int    => $this->addTypedField($name, IntegerType::class, $common + ['placeholder' => false, 'attr' => array_filter(['min' => $definition->min, 'max' => $definition->max], static fn (?int $bound): bool => $bound !== null)]),
-                    ParameterType::Bool   => $this->addTypedField($name, ChoiceType::class, $common + ['choices' => ['filter.yes' => '1', 'filter.no' => '0'], 'choice_translation_domain' => NowoReportKitBundle::TRANSLATION_DOMAIN, 'placeholder' => false]),
+                    ParameterType::Bool   => $this->addTypedField($name, ChoiceType::class, $common + ['choices' => ['filter.yes' => '1', 'filter.no' => '0'], 'choice_translation_domain' => TranslationDomain::NAME, 'placeholder' => false]),
                     ParameterType::Date   => $this->addTypedField($name, DateType::class, $common + ['placeholder' => false, 'widget' => 'single_text', 'input' => 'string', 'input_format' => 'Y-m-d']),
                 };
             }
@@ -81,7 +81,7 @@ final class ReportFilterType extends AbstractType
             'context_required'   => false,
             'extra'              => [],
             'type_domain'        => 'messages',
-            'translation_domain' => NowoReportKitBundle::TRANSLATION_DOMAIN,
+            'translation_domain' => TranslationDomain::NAME,
         ]);
         $resolver->setAllowedTypes('periods', 'array');
         $resolver->setAllowedTypes('contexts', 'array');

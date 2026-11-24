@@ -37,6 +37,7 @@ use Nowo\ReportKitBundle\Contract\ReportSettingsProviderInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeInterface;
 use Nowo\ReportKitBundle\Contract\ReportTypeRegistryInterface;
 use Nowo\ReportKitBundle\Contract\SubscriptionsInterface;
+use Nowo\ReportKitBundle\Domain\IdGeneratorInterface;
 use Nowo\ReportKitBundle\Infrastructure\Cache\PermissionCheckerWarmer;
 use Nowo\ReportKitBundle\Infrastructure\Collation\ReportKitExactKeyColumns;
 use Nowo\ReportKitBundle\Infrastructure\Console\DispatchDueCommand;
@@ -47,6 +48,7 @@ use Nowo\ReportKitBundle\Infrastructure\Csv\ControllerKitCsvCellGuard;
 use Nowo\ReportKitBundle\Infrastructure\Doctrine\ReportKitMetadataListener;
 use Nowo\ReportKitBundle\Infrastructure\Filesystem\PrivateTempDirectory;
 use Nowo\ReportKitBundle\Infrastructure\Http\ReportKitConflictListener;
+use Nowo\ReportKitBundle\Infrastructure\Identity\UuidV7IdGenerator;
 use Nowo\ReportKitBundle\Infrastructure\Mail\DisabledReportMailer;
 use Nowo\ReportKitBundle\Infrastructure\Mail\SymfonyReportMailer;
 use Nowo\ReportKitBundle\Infrastructure\Messenger\DispatchDueReportsHandler;
@@ -531,9 +533,12 @@ final class NowoReportKitExtension extends Extension implements PrependExtension
             ->setArguments([new Reference('nowo_report_kit.conflict_policy')])
             ->addTag('kernel.event_listener', ['event' => 'kernel.exception', 'method' => 'onKernelException', 'priority' => ReportKitConflictListener::PRIORITY]);
 
+        $container->register('nowo_report_kit.id_generator', UuidV7IdGenerator::class);
+        $container->setAlias(IdGeneratorInterface::class, 'nowo_report_kit.id_generator');
+        $ids = new Reference('nowo_report_kit.id_generator');
         $container->register('nowo_report_kit.subscriptions', Subscriptions::class)->setArguments([
             $store, new Reference('nowo_report_kit.type_registry'), new Reference('nowo_report_kit.settings_provider'), $clock,
-            $config['subscriptions']['max_per_owner'], $config['subscriptions']['frequencies'], $events, $logger,
+            $config['subscriptions']['max_per_owner'], $config['subscriptions']['frequencies'], $events, $logger, $ids,
         ]);
         $container->setAlias(SubscriptionsInterface::class, 'nowo_report_kit.subscriptions')->setPublic(true);
 
@@ -574,10 +579,11 @@ final class NowoReportKitExtension extends Extension implements PrependExtension
             new Reference('translation.locale_switcher', ContainerInterface::NULL_ON_INVALID_REFERENCE),
             $events,
             $logger,
+            $ids,
         ]);
         $container->setAlias(ScheduledReportRunner::class, 'nowo_report_kit.runner')->setPublic(true);
         $container->register('nowo_report_kit.dispatcher', DueReportsDispatcher::class)->setArguments([
-            $store, new Reference('nowo_report_kit.settings_provider'), $clock, $config['schedule']['batch'], $config['schedule']['stale_claim_minutes'], $config['messenger']['max_seconds'], $logger,
+            $store, new Reference('nowo_report_kit.settings_provider'), $clock, $config['schedule']['batch'], $config['schedule']['stale_claim_minutes'], $config['messenger']['max_seconds'], $logger, $ids,
         ]);
         $container->setAlias(DueReportsDispatcher::class, 'nowo_report_kit.dispatcher')->setPublic(true);
         $container->register('nowo_report_kit.retention', RunRetention::class)->setArguments([

@@ -8,7 +8,7 @@ use Nowo\ReportKitBundle\Application\Chart\ReportChartSvg;
 use Nowo\ReportKitBundle\Contract\ReportBrandResolverInterface;
 use Nowo\ReportKitBundle\Contract\ReportMailerInterface;
 use Nowo\ReportKitBundle\Contract\ScheduledReportMail;
-use Nowo\ReportKitBundle\NowoReportKitBundle;
+use Nowo\ReportKitBundle\Contract\TranslationDomain;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
@@ -74,7 +74,7 @@ final readonly class SymfonyReportMailer implements ReportMailerInterface
         ];
         $email = (new Email())
             ->to(new Address($mail->to, $mail->recipientName ?? ''))
-            ->subject($this->translator->trans('mail.subject', ['%title%' => $mail->report->title], NowoReportKitBundle::TRANSLATION_DOMAIN, $mail->locale))
+            ->subject($this->translator->trans('mail.subject', ['%title%' => $mail->report->title], TranslationDomain::NAME, $mail->locale))
             ->html($this->twig->render($this->template, $context))
             ->text($this->twig->render(self::TEXT_TEMPLATE, $context));
         if ($this->from !== null) {

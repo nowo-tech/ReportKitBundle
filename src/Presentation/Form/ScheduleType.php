@@ -7,7 +7,7 @@ namespace Nowo\ReportKitBundle\Presentation\Form;
 use DateTimeZone;
 use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Nowo\ReportKitBundle\Contract\Schedule;
-use Nowo\ReportKitBundle\NowoReportKitBundle;
+use Nowo\ReportKitBundle\Contract\TranslationDomain;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -87,7 +87,7 @@ final class ScheduleType extends AbstractType
             'frequencies'        => ['daily', 'weekly', 'monthly'],
             'formats'            => [],
             'allow_hour'         => true,
-            'translation_domain' => NowoReportKitBundle::TRANSLATION_DOMAIN,
+            'translation_domain' => TranslationDomain::NAME,
         ]);
         $resolver->setAllowedTypes('frequencies', 'array');
         $resolver->setAllowedTypes('formats', 'array');

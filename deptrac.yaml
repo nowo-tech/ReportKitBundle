@@ -1,0 +1,168 @@
+# REQ-ARCH-002: layer dependencies of src/ checked by Deptrac (strict ruleset; skipped violations only for public API
+# that cannot change before 1.0.0, each with its reason below).
+# Run: composer deptrac / make deptrac. Layers follow REQ-ARCH-001; docs/ARCHITECTURE.md explains them.
+deptrac:
+  paths:
+    - ./src
+  exclude_files:
+    - '#.*/src/Resources/.*#'
+  layers:
+    # --- Bundle layers -------------------------------------------------------------------------------------------
+    # Domain: the public contract (ports, VOs, events, exceptions in src/Contract) and the domain model (src/Domain).
+    - name: Domain
+      collectors:
+        - type: classLike
+          value: '^Nowo\\ReportKitBundle\\(Contract|Domain)\\'
+    - name: Application
+      collectors:
+        - type: classLike
+          value: '^Nowo\\ReportKitBundle\\Application\\'
+    # Infrastructure: DBAL/ORM, Messenger, Scheduler, mail, PDF/CSV/XLSX rendering, console and cache adapters.
+    - name: Infrastructure
+      collectors:
+        - type: classLike
+          value: '^Nowo\\ReportKitBundle\\Infrastructure\\'
+    # UI: controllers, forms and view models (src/Presentation).
+    - name: UI
+      collectors:
+        - type: classLike
+          value: '^Nowo\\ReportKitBundle\\Presentation\\'
+    # DependencyInjection: the composition root (bundle class, extension, compiler passes). It wires every layer.
+    - name: DependencyInjection
+      collectors:
+        - type: classLike
+          value: '^Nowo\\ReportKitBundle\\(DependencyInjection\\|NowoReportKitBundle$)'
+    # --- Vendor layers -------------------------------------------------------------------------------------------
+    # Framework-free contract packages, listed by name (Domain and Application may use them).
+    - name: Psr
+      collectors:
+        - type: classLike
+          value: '^Psr\\(Clock|Log)\\'
+    - name: TransactionContract
+      collectors:
+        - type: classLike
+          value: '^Nowo\\TransactionContract\\'
+    - name: BrandContracts
+      collectors:
+        - type: classLike
+          value: '^Nowo\\Brand\\Contract\\'
+    - name: SymfonyTranslationContracts
+      collectors:
+        - type: classLike
+          value: '^Symfony\\Contracts\\Translation\\'
+    - name: SymfonyEventDispatcherContracts
+      collectors:
+        - type: classLike
+          value: '^Symfony\\Contracts\\EventDispatcher\\'
+    - name: SymfonyContracts
+      collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: '^Symfony\\Contracts\\'
+          must_not:
+            - type: classLike
+              value: '^Symfony\\Contracts\\(Translation|EventDispatcher)\\'
+    - name: MigrationsKitContracts
+      collectors:
+        - type: classLike
+          value: '^Nowo\\MigrationsKitContracts\\'
+    # Framework and library code: Infrastructure, UI and DependencyInjection only.
+    - name: Symfony
+      collectors:
+        - type: classLike
+          value: '^Symfony\\(Component|Bundle|Bridge)\\'
+    - name: Doctrine
+      collectors:
+        - type: classLike
+          value: '^Doctrine\\'
+    - name: Twig
+      collectors:
+        - type: classLike
+          value: '^Twig\\'
+    - name: TransactionDoctrine
+      collectors:
+        - type: classLike
+          value: '^Nowo\\TransactionDoctrine\\'
+    - name: NowoBundles
+      collectors:
+        - type: classLike
+          value: '^Nowo\\(UiKitBundle|FormKitBundle|ControllerKitBundle)\\'
+    # Optional renderers (suggested packages).
+    - name: Renderers
+      collectors:
+        - type: classLike
+          value: '^(Dompdf|OpenSpout)\\'
+  ruleset:
+    Domain:
+      - Psr
+      - TransactionContract
+      - BrandContracts
+      - SymfonyTranslationContracts
+    Application:
+      - Domain
+      - Psr
+      - TransactionContract
+      - BrandContracts
+      - SymfonyTranslationContracts
+      - SymfonyEventDispatcherContracts
+    Infrastructure:
+      - Domain
+      - Application
+      - Psr
+      - TransactionContract
+      - BrandContracts
+      - MigrationsKitContracts
+      - SymfonyTranslationContracts
+      - SymfonyEventDispatcherContracts
+      - SymfonyContracts
+      - Symfony
+      - Doctrine
+      - Twig
+      - TransactionDoctrine
+      - NowoBundles
+      - Renderers
+    UI:
+      - Domain
+      - Application
+      - Psr
+      - TransactionContract
+      - BrandContracts
+      - SymfonyTranslationContracts
+      - SymfonyEventDispatcherContracts
+      - SymfonyContracts
+      - Symfony
+      - Twig
+      - NowoBundles
+    DependencyInjection:
+      - Domain
+      - Application
+      - Infrastructure
+      - UI
+      - Psr
+      - TransactionContract
+      - BrandContracts
+      - MigrationsKitContracts
+      - SymfonyTranslationContracts
+      - SymfonyEventDispatcherContracts
+      - SymfonyContracts
+      - Symfony
+      - Doctrine
+      - Twig
+      - TransactionDoctrine
+      - NowoBundles
+      - Renderers
+  # Legacy public API that cannot change before 1.0.0 (REQ-ARCH-002 rule 3). This list must shrink, never grow.
+  skip_violations:
+    # Public exception (REQ-RUNTIME-003 rule 6): it implements transaction-doctrine's LockConflictExceptionInterface and
+    # exposes its ConflictCode / ConcurrencyConflict, which hosts and the conflict responder read. Removed in 1.0.0 once
+    # transaction-contract ships framework-free equivalents (or the exception moves out of the contract).
+    Nowo\ReportKitBundle\Contract\Exception\ReportKitConflictException:
+      - Nowo\TransactionDoctrine\ConflictCode
+      - Nowo\TransactionDoctrine\TransientFailureKind
+      - Nowo\TransactionDoctrine\WriteUnit\ConcurrencyConflict
+      - Nowo\TransactionDoctrine\WriteUnit\LockConflictExceptionInterface
+    # Public constructor argument `?LocaleSwitcher $localeSwitcher` (13th): replacing it by a bundle port changes the
+    # signature hosts may call. Removed in 1.0.0 (a LocaleRunnerInterface port + Symfony adapter in Infrastructure).
+    Nowo\ReportKitBundle\Application\Run\ScheduledReportRunner:
+      - Symfony\Component\Translation\LocaleSwitcher

@@ -11,7 +11,7 @@ use Nowo\ReportKitBundle\Contract\PauseReason;
 use Nowo\ReportKitBundle\Contract\ReportTypeInterface;
 use Nowo\ReportKitBundle\Contract\RunStatus;
 use Nowo\ReportKitBundle\Contract\SubscriptionView;
-use Nowo\ReportKitBundle\NowoReportKitBundle;
+use Nowo\ReportKitBundle\Contract\TranslationDomain;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 use function sprintf;
@@ -25,7 +25,7 @@ use function sprintf;
  */
 final class SubscriptionRows
 {
-    private const DOMAIN = NowoReportKitBundle::TRANSLATION_DOMAIN;
+    private const DOMAIN = TranslationDomain::NAME;
 
     /**
      * @return array{id: string, enabled: bool, report: string, parameters: string, schedule: string, next_run: string, status: string}

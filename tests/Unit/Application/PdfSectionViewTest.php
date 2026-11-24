@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Nowo\ReportKitBundle\Tests\Unit\Infrastructure;
+namespace Nowo\ReportKitBundle\Tests\Unit\Application;
 
+use Nowo\ReportKitBundle\Application\Rendering\PdfSectionView;
 use Nowo\ReportKitBundle\Contract\ReportSection;
-use Nowo\ReportKitBundle\Infrastructure\Rendering\PdfSectionView;
 use PHPUnit\Framework\TestCase;
 
 use function base64_decode;

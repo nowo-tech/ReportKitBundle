@@ -15,6 +15,7 @@ use Nowo\ReportKitBundle\Application\Chart\ReportChartSvg;
 use Nowo\ReportKitBundle\Application\Export\RenderBudget;
 use Nowo\ReportKitBundle\Application\Export\RenderLimits;
 use Nowo\ReportKitBundle\Application\Export\ReportRendererInterface;
+use Nowo\ReportKitBundle\Application\Rendering\PdfSectionView;
 use Nowo\ReportKitBundle\Contract\PdfDocumentRendererInterface;
 use Nowo\ReportKitBundle\Contract\PdfOptions;
 use Nowo\ReportKitBundle\Contract\Report;

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Nowo\ReportKitBundle\Presentation\View;
 
 use Nowo\ReportKitBundle\Application\Chart\ReportChartSvg;
+use Nowo\ReportKitBundle\Application\Rendering\PdfSectionView;
 use Nowo\ReportKitBundle\Contract\Report;
 use Nowo\ReportKitBundle\Contract\ReportSection;
-use Nowo\ReportKitBundle\Infrastructure\Rendering\PdfSectionView;
-use Nowo\ReportKitBundle\NowoReportKitBundle;
+use Nowo\ReportKitBundle\Contract\TranslationDomain;
 use Nowo\UiKitBundle\View\Column;
 use Nowo\UiKitBundle\View\Label;
 use Nowo\UiKitBundle\View\Stat;
@@ -75,7 +75,7 @@ final class ScreenSections
             $deltaTone = $tone === 'good' ? 'positive' : ($tone === 'bad' ? 'negative' : 'neutral');
             if (!is_int($delta) && !is_float($delta)) {
                 // No previous value: "new" when the figure has a direction, else "no change data".
-                $stats[] = new Stat($card['label'], $card['value'], delta: new Label($deltaTone === 'neutral' ? 'report.delta.none' : 'report.delta.new', NowoReportKitBundle::TRANSLATION_DOMAIN), deltaTone: $deltaTone);
+                $stats[] = new Stat($card['label'], $card['value'], delta: new Label($deltaTone === 'neutral' ? 'report.delta.none' : 'report.delta.new', TranslationDomain::NAME), deltaTone: $deltaTone);
                 continue;
             }
             $stats[] = new Stat(
