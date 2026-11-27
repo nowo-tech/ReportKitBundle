@@ -99,7 +99,7 @@ Every key of the contract is already accepted (strict tree): [docs/CONFIGURATION
 
 ## Requirements
 
-- PHP >= 8.2, < 8.6
+- PHP >= 8.2, < 8.7
 - Symfony 7.4, 8.0 or 8.1
 
 ## Demo

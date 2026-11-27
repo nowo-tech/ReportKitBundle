@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- PHP 8.6: `composer.json` allows PHP below 8.7 (was below 8.6). CI adds a forward-compatibility workflow with a
+  PHP 8.6 cell and a Symfony 8.2 cell (release candidates, allowed to fail until 8.2.0 is stable).
+
 ### Internal
 
 - **Deptrac layer check** (REQ-ARCH-002): `deptrac.yaml` with a strict ruleset (Domain / Application framework-free,
