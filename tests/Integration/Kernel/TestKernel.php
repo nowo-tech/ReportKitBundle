@@ -13,9 +13,13 @@ use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Bundle\TwigBundle\TwigBundle;
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Extra\TwigExtraBundle\TwigExtraBundle;
 
 use function dirname;
@@ -79,6 +83,28 @@ final class TestKernel extends Kernel
     public static function baseDir(): string
     {
         return sys_get_temp_dir() . '/nowo-report-kit-tests';
+    }
+
+    protected function build(ContainerBuilder $container): void
+    {
+        if ($this->translator) {
+            return;
+        }
+        // Symfony 8.2 always registers an identity translator when the translation component is installed, even with
+        // `framework.translator` off: drop it to stand for a host without any translator.
+        $container->addCompilerPass(new class implements CompilerPassInterface {
+            public function process(ContainerBuilder $container): void
+            {
+                foreach (['translator', TranslatorInterface::class, 'translator.default', 'translator.identity'] as $id) {
+                    if ($container->hasAlias($id)) {
+                        $container->removeAlias($id);
+                    }
+                    if ($container->hasDefinition($id)) {
+                        $container->removeDefinition($id);
+                    }
+                }
+            }
+        }, PassConfig::TYPE_BEFORE_OPTIMIZATION, 100);
     }
 
     protected function configureContainer(ContainerConfigurator $container): void
