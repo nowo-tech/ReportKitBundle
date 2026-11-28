@@ -16,6 +16,9 @@ use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Bundle\TwigBundle\TwigBundle;
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -86,6 +89,23 @@ final class WebKernel extends Kernel
     public static function baseDir(): string
     {
         return sys_get_temp_dir() . '/nowo-report-kit-web-tests';
+    }
+
+    protected function build(ContainerBuilder $container): void
+    {
+        // A host without symfony/validator: Symfony 8.2 keeps the form's validator guesser and extension while the
+        // validation is switched off (they only go when the component is not installed), so they go here.
+        $container->addCompilerPass(new class implements CompilerPassInterface {
+            public function process(ContainerBuilder $container): void
+            {
+                if (!$container->hasParameter('report_kit_test.no_validator')) {
+                    return;
+                }
+                foreach (['form.type_guesser.validator', 'form.type_extension.form.validator'] as $id) {
+                    $container->removeDefinition($id);
+                }
+            }
+        }, PassConfig::TYPE_BEFORE_OPTIMIZATION, 100);
     }
 
     protected function configureContainer(ContainerConfigurator $container): void

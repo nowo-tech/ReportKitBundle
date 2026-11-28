@@ -192,6 +192,7 @@ final class SubscriptionPagesTest extends WebKernelTestCase
     {
         $this->kernel = $this->bootWeb(['scope' => ['resolver' => TeamScopeResolver::class, 'access_checker' => TeamAccessChecker::class]], static function (ContainerConfigurator $c): void {
             $c->extension('framework', ['validation' => ['enabled' => false]]);
+            $c->parameters()->set('report_kit_test.no_validator', true);
             $s = $c->services();
             $s->set(OrdersReportType::class)->autowire()->autoconfigure();
             $s->set(TeamScopeResolver::class);

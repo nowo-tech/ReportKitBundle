@@ -111,7 +111,7 @@ Q-O6 covers async large exports).
 | Composer | **`nowo-tech/report-kit-bundle`** |
 | GitHub | `nowo-tech/ReportKitBundle`, public, MIT; the owner creates it and registers it on Packagist after S0 is on `main` |
 | Namespace / class | `Nowo\ReportKitBundle` / `NowoReportKitBundle`; config root `nowo_report_kit`; Twig namespace and translation domain `NowoReportKitBundle` |
-| PHP / Symfony | `>=8.2 <8.6`; `^7.4 \|\| ^8.0`; demo Symfony 8.1 + FrankenPHP worker + MySQL + Mailpit |
+| PHP / Symfony | `>=8.2 <8.7`; `^7.4 \|\| ^8.0`; demo Symfony 8.1 + FrankenPHP worker + MySQL + Mailpit |
 | Runtime deps | `symfony/{http-foundation,http-kernel,routing,config,dependency-injection,event-dispatcher,security-core,translation,uid,clock,rate-limiter}`, `doctrine/dbal ^3.9 \|\| ^4`, `doctrine/orm ^3.3` (mapping only), `psr/log`, `twig/twig`, `nowo-tech/ui-kit-bundle`, `nowo-tech/form-kit-bundle`, `nowo-tech/brand-contracts ^1.1` |
 | Format engines | `dompdf/dompdf ^3.1` (PDF) and `openspout/openspout` (XLSX, Beacon runs 5.13): **suggested**, enabled per format; the container refuses `formats.pdf.enabled: true` without Dompdf (Q-O3) |
 | Suggest | `symfony/messenger` + `symfony/scheduler` (scheduled runs), `symfony/mailer` + `nowo-tech/mail-kit-bundle`, `nowo-tech/controller-kit-bundle` (CSV streaming, Q-O4), `nowo-tech/notify-kit-bundle`, `nowo-tech/user-kit-bundle`, `nowo-tech/audit-kit-bundle`, `nowo-tech/api-token-bundle` |
